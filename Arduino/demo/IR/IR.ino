@@ -23,6 +23,12 @@ unsigned char results;
 byte flag = 0;
 int Speed = 150;
 
+// Speed offsets to calibrate wheel imbalance (adjust these to make the car run straight)
+// If the car drifts to the Right, it means the Right wheel is slower: decrease LEFT_SPEED_OFFSET (e.g. -15) or increase right
+// If the car drifts to the Left, it means the Left wheel is slower: decrease RIGHT_SPEED_OFFSET (e.g. -15) or increase left
+#define LEFT_SPEED_OFFSET   0  
+#define RIGHT_SPEED_OFFSET  0  
+
 char IR_decode(unsigned char code);
 void translateIR();
 void forward();
@@ -154,8 +160,8 @@ char IR_decode(unsigned char * code)
 
 void forward()
 {
-  analogWrite(PWMA,Speed);
-  analogWrite(PWMB,Speed);
+  analogWrite(PWMA, constrain(Speed + LEFT_SPEED_OFFSET, 0, 255));
+  analogWrite(PWMB, constrain(Speed + RIGHT_SPEED_OFFSET, 0, 255));
   digitalWrite(AIN1,LOW);
   digitalWrite(AIN2,HIGH);
   digitalWrite(BIN1,LOW);  
@@ -164,8 +170,8 @@ void forward()
 
 void backward()
 {
-  analogWrite(PWMA,Speed);
-  analogWrite(PWMB,Speed);
+  analogWrite(PWMA, constrain(Speed + LEFT_SPEED_OFFSET, 0, 255));
+  analogWrite(PWMB, constrain(Speed + RIGHT_SPEED_OFFSET, 0, 255));
   digitalWrite(AIN1,HIGH);
   digitalWrite(AIN2,LOW);
   digitalWrite(BIN1,HIGH); 
