@@ -1,4 +1,7 @@
 #include <Wire.h>
+#include <SPI.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 #define PWMA   6           //Left Motor Speed pin (ENA)
 #define AIN2   A0          //Motor-L forward (IN2).
@@ -8,6 +11,10 @@
 #define BIN2   A3          //Motor-R backward (IN4)
 
 #define Addr  0x20
+
+#define OLED_RESET 9
+#define OLED_SA0   8
+Adafruit_SSD1306 display(OLED_RESET, OLED_SA0);
 
 #define beep_on  PCF8574Write(0xDF & PCF8574Read())
 #define beep_off PCF8574Write(0x20 | PCF8574Read())
@@ -25,11 +32,26 @@ void backward();
 void right();
 void left();
 void stop();
+void updateOLED(const char* text);
 
 void setup() {
   Serial.begin(115200);
   Serial.println("Joystick example!!");
   Wire.begin();
+
+  // Initialize OLED Screen
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(10, 10);
+  display.println("AlphaBot2");
+  display.setCursor(10, 35);
+  display.println("Joystick!");
+  display.display();
+  delay(1500);
+  
+  updateOLED("READY");
   
   // Configure speed control pins as outputs
   pinMode(PWMA, OUTPUT);                     
@@ -49,7 +71,6 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
   PCF8574Write(0x1F | PCF8574Read());
   value = PCF8574Read() | 0xE0;
   if(value != 0xFF)
@@ -59,20 +80,31 @@ void loop() {
     { 
       case 0xFE:
         forward();
-        Serial.println("up");break; 
+        updateOLED("FORWARD");
+        Serial.println("up");
+        break; 
       case 0xFD:
         right();
-        Serial.println("right"); break;
+        updateOLED("RIGHT");
+        Serial.println("right");
+        break;
       case 0xFB:
         left();
-        Serial.println("left");break; 
+        updateOLED("LEFT");
+        Serial.println("left");
+        break; 
       case 0xF7:
         backward();
-        Serial.println("down");break;
+        updateOLED("BACKWARD");
+        Serial.println("down");
+        break;
       case 0xEF:
         forward();
-        Serial.println("center");break;
+        updateOLED("CENTER");
+        Serial.println("center");
+        break;
       default :
+        updateOLED("UNKNOWN");
         Serial.println("unknow\n");
     }
     while(value != 0xFF)
@@ -82,6 +114,7 @@ void loop() {
       delay(10);
     }
     stop();  
+    updateOLED("STOP");
     beep_off;
   }
 }
@@ -151,4 +184,14 @@ void stop()
   digitalWrite(AIN2,LOW);
   digitalWrite(BIN1,LOW); 
   digitalWrite(BIN2,LOW);  
+}
+
+void updateOLED(const char* text)
+{
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(15, 20);
+  display.println(text);
+  display.display();
 }
