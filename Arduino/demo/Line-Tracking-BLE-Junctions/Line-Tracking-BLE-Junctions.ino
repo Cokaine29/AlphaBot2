@@ -3,7 +3,6 @@
 #include "TRSensors.h"
 #include <Wire.h>
 #include <Adafruit_NeoPixel.h>
-#include <aJSON.h>
 
 #define PWMA 6  // Left Motor Speed pin (ENA)
 #define AIN2 A0 // Motor-L forward (IN2)
@@ -23,7 +22,6 @@
 Adafruit_SSD1306 display(128, 64, &Wire, OLED_RESET);
 TRSensors trs = TRSensors();
 Adafruit_NeoPixel RGB = Adafruit_NeoPixel(4, PIN, NEO_GRB + NEO_KHZ800);
-aJsonStream serial_stream(&Serial);
 
 // Speed offsets to calibrate wheel imbalance (Configured to 0, 0 as requested)
 #define LEFT_SPEED_OFFSET 0
@@ -52,7 +50,7 @@ void left();
 void stop();
 void runCalibration();
 void handleJunction();
-void ComExecution(aJsonObject *msg);
+void parseAndExecuteCommand(String command);
 uint32_t Wheel(byte WheelPos);
 
 void setup() {
@@ -108,16 +106,10 @@ void setup() {
 }
 
 void loop() {
-  // 1. Read commands from BLE Serial
-  if (serial_stream.available()) {
-    serial_stream.skip();
-  }
-  if (serial_stream.available()) {
-    aJsonObject *msg = aJson.parse(&serial_stream);
-    if (msg) {
-      ComExecution(msg);
-      aJson.deleteItem(msg);
-    }
+  // 1. Read commands from BLE Serial (delimited by newlines)
+  if (Serial.available() > 0) {
+    String cmd = Serial.readStringUntil('\n');
+    parseAndExecuteCommand(cmd);
   }
 
   // 2. Read physical Joystick inputs
@@ -325,22 +317,13 @@ void handleJunction() {
     if (joystickKey == 0xFB) { choice = "Left"; break; }
     if (joystickKey == 0xFD) { choice = "Right"; break; }
 
-    // 2. Check BLE serial stream
-    if (serial_stream.available()) {
-      serial_stream.skip();
-    }
-    if (serial_stream.available()) {
-      aJsonObject *msg = aJson.parse(&serial_stream);
-      if (msg) {
-        aJsonObject *goObj = aJson.getObjectItem(msg, "Go");
-        if (goObj) {
-          choice = goObj->valuestring;
-        }
-        aJson.deleteItem(msg);
-      }
-      if (choice == "Straight" || choice == "Left" || choice == "Right") {
-        break;
-      }
+    // 2. Check BLE serial stream for steering choice
+    if (Serial.available() > 0) {
+      String cmd = Serial.readStringUntil('\n');
+      cmd.trim();
+      if (cmd.indexOf("\"Go\":\"Straight\"") != -1) { choice = "Straight"; break; }
+      if (cmd.indexOf("\"Go\":\"Left\"") != -1) { choice = "Left"; break; }
+      if (cmd.indexOf("\"Go\":\"Right\"") != -1) { choice = "Right"; break; }
     }
     delay(10);
   }
@@ -403,110 +386,84 @@ void handleJunction() {
   }
 }
 
-// Executes incoming JSON commands from BLE
-void ComExecution(aJsonObject *msg) {
+// Executes incoming commands from BLE
+void parseAndExecuteCommand(String command) {
+  command.trim();
+  if (command.length() == 0) return;
+
   // 1. Calibration trigger
-  aJsonObject *calObj = aJson.getObjectItem(msg, "Calibrate");
-  if (calObj) {
-    String str = calObj->valuestring;
-    if (str.equals("Start")) {
-      runCalibration();
-    }
+  if (command.indexOf("\"Calibrate\":\"Start\"") != -1) {
+    runCalibration();
   }
 
   // 2. Line tracking state controls
-  aJsonObject *ltObj = aJson.getObjectItem(msg, "LineTracking");
-  if (ltObj) {
-    String str = ltObj->valuestring;
-    if (str.equals("Start")) {
-      if (!isCalibrated) {
-        runCalibration();
-      }
-      isTracking = true;
-      Serial.println("{\"State\":\"Tracking\"}");
-      display.clearDisplay();
-      display.setTextSize(2);
-      display.setCursor(20, 20);
-      display.println("TRACKING");
-      display.display();
-      
-      // Reset PID direction pins
-      digitalWrite(AIN1, LOW);
-      digitalWrite(AIN2, HIGH);
-      digitalWrite(BIN1, LOW);
-      digitalWrite(BIN2, HIGH);
-    } else if (str.equals("Stop")) {
-      isTracking = false;
-      stop();
-      Serial.println("{\"State\":\"Stopped\"}");
-      display.clearDisplay();
-      display.setTextSize(2);
-      display.setCursor(20, 20);
-      display.println("STOPPED");
-      display.display();
+  else if (command.indexOf("\"LineTracking\":\"Start\"") != -1) {
+    if (!isCalibrated) {
+      runCalibration();
     }
+    isTracking = true;
+    Serial.println("{\"State\":\"Tracking\"}");
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setCursor(20, 20);
+    display.println("TRACKING");
+    display.display();
+    
+    // Reset PID direction pins
+    digitalWrite(AIN1, LOW);
+    digitalWrite(AIN2, HIGH);
+    digitalWrite(BIN1, LOW);
+    digitalWrite(BIN2, HIGH);
+  } else if (command.indexOf("\"LineTracking\":\"Stop\"") != -1) {
+    isTracking = false;
+    stop();
+    Serial.println("{\"State\":\"Stopped\"}");
+    display.clearDisplay();
+    display.setTextSize(2);
+    display.setCursor(20, 20);
+    display.println("STOPPED");
+    display.display();
   }
 
   // 3. Manual override controls (Only allowed when not line-tracking)
-  if (!isTracking) {
-    aJsonObject *Forward = aJson.getObjectItem(msg, "Forward");
-    if (Forward) {
-      String str = Forward->valuestring;
-      if (str.equals("Down")) { forward(); }
-      else if (str.equals("Up")) { stop(); }
-    }
-    aJsonObject *Backward = aJson.getObjectItem(msg, "Backward");
-    if (Backward) {
-      String str = Backward->valuestring;
-      if (str.equals("Down")) { backward(); }
-      else if (str.equals("Up")) { stop(); }
-    }
-    aJsonObject *Left = aJson.getObjectItem(msg, "Left");
-    if (Left) {
-      String str = Left->valuestring;
-      if (str.equals("Down")) { left(); }
-      else if (str.equals("Up")) { stop(); }
-    }
-    aJsonObject *Right = aJson.getObjectItem(msg, "Right");
-    if (Right) {
-      String str = Right->valuestring;
-      if (str.equals("Down")) { right(); }
-      else if (str.equals("Up")) { stop(); }
-    }
-    aJsonObject *Stop = aJson.getObjectItem(msg, "Stop");
-    if (Stop) {
-      stop();
-    }
+  else if (!isTracking) {
+    if (command.indexOf("\"Forward\":\"Down\"") != -1) { forward(); }
+    else if (command.indexOf("\"Forward\":\"Up\"") != -1) { stop(); }
+    else if (command.indexOf("\"Backward\":\"Down\"") != -1) { backward(); }
+    else if (command.indexOf("\"Backward\":\"Up\"") != -1) { stop(); }
+    else if (command.indexOf("\"Left\":\"Down\"") != -1) { left(); }
+    else if (command.indexOf("\"Left\":\"Up\"") != -1) { stop(); }
+    else if (command.indexOf("\"Right\":\"Down\"") != -1) { right(); }
+    else if (command.indexOf("\"Right\":\"Up\"") != -1) { stop(); }
+    else if (command.indexOf("\"Stop\":\"Down\"") != -1) { stop(); }
   }
 
   // 4. Utility commands (Active in any mode)
-  aJsonObject *Low = aJson.getObjectItem(msg, "Low");
-  if (Low) { Speed = 100; }
-  aJsonObject *Medium = aJson.getObjectItem(msg, "Medium");
-  if (Medium) { Speed = 150; }
-  aJsonObject *High = aJson.getObjectItem(msg, "High");
-  if (High) { Speed = 200; }
+  if (command.indexOf("\"Low\":\"Down\"") != -1) { Speed = 100; }
+  else if (command.indexOf("\"Medium\":\"Down\"") != -1) { Speed = 150; }
+  else if (command.indexOf("\"High\":\"Down\"") != -1) { Speed = 200; }
 
-  aJsonObject *buzzer = aJson.getObjectItem(msg, "BZ");
-  if (buzzer) {
-    String str = buzzer->valuestring;
-    if (str.equals("on")) { beep_on; }
-    else if (str.equals("off")) { beep_off; }
-  }
+  if (command.indexOf("\"BZ\":\"on\"") != -1) { beep_on; }
+  else if (command.indexOf("\"BZ\":\"off\"") != -1) { beep_off; }
 
-  aJsonObject *rgb = aJson.getObjectItem(msg, "RGB");
-  if (rgb) {
-    byte R, G, B;
-    String str = rgb->valuestring;
-    int temp = str.indexOf(',');
-    int temp2 = str.lastIndexOf(',');
-    R = str.substring(0, temp).toInt(); 
-    G = str.substring(temp+1, temp2).toInt();
-    B = str.substring(temp2+1, str.length()).toInt();
-    for (int i = 0; i < 4; i++) {
-      RGB.setPixelColor(i, RGB.Color(R, G, B));
+  if (command.indexOf("\"RGB\":\"") != -1) {
+    int rgbIdx = command.indexOf("\"RGB\":\"");
+    int valStart = rgbIdx + 7;
+    int valEnd = command.indexOf("\"", valStart);
+    if (valEnd != -1) {
+      String rgbVals = command.substring(valStart, valEnd);
+      int comma1 = rgbVals.indexOf(',');
+      int comma2 = rgbVals.lastIndexOf(',');
+      if (comma1 != -1 && comma2 != -1) {
+        byte R = rgbVals.substring(0, comma1).toInt();
+        byte G = rgbVals.substring(comma1 + 1, comma2).toInt();
+        byte B = rgbVals.substring(comma2 + 1).toInt();
+        for (int i = 0; i < 4; i++) {
+          RGB.setPixelColor(i, RGB.Color(R, G, B));
+        }
+        RGB.show();
+      }
     }
-    RGB.show();
   }
 }
 
