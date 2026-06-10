@@ -753,23 +753,54 @@
         resetDisconnectUI();
     }
 
-    // Packet Sender
-    async function sendPacket(jsonObject) {
-        const jsonStr = JSON.stringify(jsonObject);
-        logToTerminal(`TX: ${jsonStr}`, 'tx');
-        
-        if (!isConnected || !txCharacteristic) {
-            logToTerminal('Failed: Device not connected. Packets queued locally.', 'error');
-            return;
-        }
+    // Serial Transmission Queue to prevent "GATT operation already in progress" overlap errors
+    let sendQueue = [];
+    let isSending = false;
 
-        try {
-            const encoder = new TextEncoder();
-            const dataBuffer = encoder.encode(jsonStr);
-            await txCharacteristic.writeValue(dataBuffer);
-        } catch (err) {
-            logToTerminal(`TX Error: ${err.message}`, 'error');
+    async function processQueue() {
+        if (isSending || sendQueue.length === 0) return;
+        isSending = true;
+
+        while (sendQueue.length > 0) {
+            const { jsonObject, resolve, reject } = sendQueue[0];
+            const jsonStr = JSON.stringify(jsonObject);
+
+            if (!isConnected || !txCharacteristic) {
+                logToTerminal(`Failed (Not connected): ${jsonStr}`, 'error');
+                sendQueue.shift();
+                reject(new Error("Not connected"));
+                continue;
+            }
+
+            try {
+                const encoder = new TextEncoder();
+                const dataBuffer = encoder.encode(jsonStr);
+                
+                logToTerminal(`TX: ${jsonStr}`, 'tx');
+                await txCharacteristic.writeValue(dataBuffer);
+                
+                sendQueue.shift();
+                resolve();
+            } catch (err) {
+                logToTerminal(`TX Error: ${err.message}`, 'error');
+                
+                // If GATT is busy, wait 50ms and retry without removing from queue
+                if (err.message.includes("GATT operation already in progress")) {
+                    await new Promise(r => setTimeout(r, 50));
+                } else {
+                    sendQueue.shift();
+                    reject(err);
+                }
+            }
         }
+        isSending = false;
+    }
+
+    function sendPacket(jsonObject) {
+        return new Promise((resolve, reject) => {
+            sendQueue.push({ jsonObject, resolve, reject });
+            processQueue();
+        });
     }
 
     // Momentary trigger handler
