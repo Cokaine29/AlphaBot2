@@ -20,6 +20,10 @@ aJsonStream serial_stream(&Serial);
 #define BIN1   A2          //Motor-R forward (IN3)
 #define BIN2   A3          //Motor-R backward (IN4)
 
+// Speed offsets to calibrate wheel imbalance (Carried over -3 right wheel offset)
+#define LEFT_SPEED_OFFSET   0  
+#define RIGHT_SPEED_OFFSET -3  
+
 
 //Speed
 #define LOW_SPEED      100
@@ -47,7 +51,7 @@ void stop();
 
 void setup() {
   // put your setup code here, to run once:
-  Serial.begin(115200);
+  Serial.begin(9600);   // Standard generic 6-pin BLE modules (HM-10, BT05) default to 9600 baud
   Wire.begin();
   RGB.begin();
   RGB.show(); // Initialize all pixels to 'off'
@@ -55,8 +59,8 @@ void setup() {
   pinMode(AIN2,OUTPUT);      
   pinMode(AIN1,OUTPUT);
   pinMode(PWMB,OUTPUT);       
-  pinMode(AIN1,OUTPUT);     
-  pinMode(AIN2,OUTPUT);  
+  pinMode(BIN1,OUTPUT);     // Fixed: previously duplicated AIN1
+  pinMode(BIN2,OUTPUT);     // Fixed: previously duplicated AIN2
   Serial.println("{\"State\":\"Waveshare\"}");
 }
 
@@ -246,8 +250,8 @@ byte PCF8574Read()
 
 void forward()
 {
-  analogWrite(PWMA,Speed);
-  analogWrite(PWMB,Speed);
+  analogWrite(PWMA, constrain(Speed + LEFT_SPEED_OFFSET, 0, 255));
+  analogWrite(PWMB, constrain(Speed + RIGHT_SPEED_OFFSET, 0, 255));
   digitalWrite(AIN1,LOW);
   digitalWrite(AIN2,HIGH);
   digitalWrite(BIN1,LOW);  
@@ -256,8 +260,8 @@ void forward()
 
 void backward()
 {
-  analogWrite(PWMA,Speed);
-  analogWrite(PWMB,Speed);
+  analogWrite(PWMA, constrain(Speed + LEFT_SPEED_OFFSET, 0, 255));
+  analogWrite(PWMB, constrain(Speed + RIGHT_SPEED_OFFSET, 0, 255));
   digitalWrite(AIN1,HIGH);
   digitalWrite(AIN2,LOW);
   digitalWrite(BIN1,HIGH); 

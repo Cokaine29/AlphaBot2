@@ -238,7 +238,7 @@ aJsonStream::parseNumber(aJsonObject *item)
         in = this->getch();
       }
     while (in >= '0' && in <= '9'); // Number?
-  //end of integer part Ð or isn't it?
+  //end of integer part Ã or isn't it?
   if (!(in == '.' || in == 'e' || in == 'E'))
     {
       item->valueint = i * (int) sign;
@@ -501,7 +501,7 @@ aJsonStream::skip()
 // Utility to flush our buffer in case it contains garbage
 // since the parser will return the buffer untouched if it
 // cannot understand it.
-int
+void
 aJsonStream::flush()
 {
   int in = this->getch();
@@ -509,7 +509,6 @@ aJsonStream::flush()
   {
     in = this->getch();
   }
-  return EOF;
 }
 
 
