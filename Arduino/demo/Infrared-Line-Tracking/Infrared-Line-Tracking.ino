@@ -13,6 +13,10 @@ long integral = 0;
 #define BIN1   A2          //Motor-R forward (IN3)
 #define BIN2   A3          //Motor-R backward (IN4)
 
+// Speed offsets to calibrate wheel imbalance (Carried over -3 right wheel offset)
+#define LEFT_SPEED_OFFSET   0  
+#define RIGHT_SPEED_OFFSET -3  
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
@@ -21,8 +25,8 @@ void setup() {
   pinMode(AIN2,OUTPUT);      
   pinMode(AIN1,OUTPUT);
   pinMode(PWMB,OUTPUT);       
-  pinMode(AIN1,OUTPUT);     
-  pinMode(AIN2,OUTPUT);  
+  pinMode(BIN1,OUTPUT);     // Fixed: previously duplicated AIN1
+  pinMode(BIN2,OUTPUT);     // Fixed: previously duplicated AIN2
   analogWrite(PWMA,0);
   analogWrite(PWMB,0);
   digitalWrite(AIN1,LOW);
@@ -92,13 +96,13 @@ void loop() {
    // Serial.println(power_difference);
   if (power_difference < 0)
   {
-    analogWrite(PWMA,maximum + power_difference);
-    analogWrite(PWMB,maximum);
+    analogWrite(PWMA, constrain(maximum + power_difference + LEFT_SPEED_OFFSET, 0, 255));
+    analogWrite(PWMB, constrain(maximum + RIGHT_SPEED_OFFSET, 0, 255));
   }
   else
   {
-    analogWrite(PWMA,maximum);
-    analogWrite(PWMB,maximum - power_difference);
+    analogWrite(PWMA, constrain(maximum + LEFT_SPEED_OFFSET, 0, 255));
+    analogWrite(PWMB, constrain(maximum - power_difference + RIGHT_SPEED_OFFSET, 0, 255));
   }    
   //delay(250);
 }
