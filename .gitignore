@@ -1,0 +1,21 @@
+# Compiled binaries
+*.hex
+*.elf
+*.bin
+*.o
+*.d
+*.a
+
+# Build directories
+build/
+bin/
+out/
+
+# VS Code specific directories
+.vscode/ipch/
+.vscode/browse.vc.db
+.vscode/c_cpp_properties.json.log
+
+# System files
+Thumbs.db
+.DS_Store
