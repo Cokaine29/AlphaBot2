@@ -1,5 +1,3 @@
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 #include "TRSensors.h"
 #include <Wire.h>
 #include <Adafruit_NeoPixel.h>
@@ -12,14 +10,11 @@
 #define BIN2 A3 // Motor-R backward (IN4)
 #define PIN 7   // RGB NeoPixel Pin
 #define NUM_SENSORS 5
-#define OLED_RESET 9
-#define OLED_SA0 8
 #define Addr 0x20 // PCF8574 Address
 
 #define beep_on PCF8574Write(0xDF & PCF8574Read())
 #define beep_off PCF8574Write(0x20 | PCF8574Read())
 
-Adafruit_SSD1306 display(128, 64, &Wire, OLED_RESET);
 TRSensors trs = TRSensors();
 Adafruit_NeoPixel RGB = Adafruit_NeoPixel(4, PIN, NEO_GRB + NEO_KHZ800);
 
@@ -58,23 +53,7 @@ uint32_t Wheel(byte WheelPos);
 
 void setup() {
   Serial.begin(9600); // Default baud for standard 6-pin BLE modules
-  
-  // Set I2C Address Pin (SA0) to LOW to select 0x3C address
-  pinMode(OLED_SA0, OUTPUT);
-  digitalWrite(OLED_SA0, LOW);
-
   Wire.begin();
-
-  // Initialize OLED Screen
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setTextColor(WHITE);
-  display.setCursor(10, 10);
-  display.println(F("AlphaBot2"));
-  display.setCursor(10, 35);
-  display.println(F("BLE-Node"));
-  display.display();
   
   RGB.begin();
   RGB.setPixelColor(0, 0x00FF00); // Green indicating ready
@@ -93,17 +72,6 @@ void setup() {
   pinMode(BIN2, OUTPUT);
   
   stop();
-
-  // Show status on OLED
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setCursor(0, 10);
-  display.println(F("Ready. Awaiting BLE"));
-  display.setCursor(0, 25);
-  display.println(F("or Joystick Center"));
-  display.setCursor(0, 40);
-  display.println(F("to start calibration."));
-  display.display();
 
   Serial.println(F("{\"State\":\"Stopped\"}"));
 }
@@ -128,11 +96,6 @@ void loop() {
         isTracking = !isTracking;
         if (isTracking) {
           Serial.println(F("{\"State\":\"Tracking\"}"));
-          display.clearDisplay();
-          display.setTextSize(2);
-          display.setCursor(20, 20);
-          display.println(F("TRACKING"));
-          display.display();
           
           // Reset direction pins
           digitalWrite(AIN1, LOW);
@@ -142,11 +105,6 @@ void loop() {
         } else {
           stop();
           Serial.println(F("{\"State\":\"Stopped\"}"));
-          display.clearDisplay();
-          display.setTextSize(2);
-          display.setCursor(20, 20);
-          display.println(F("STOPPED"));
-          display.display();
         }
       }
       // Wait for button release
@@ -249,13 +207,6 @@ void loop() {
 void runCalibration() {
   Serial.println(F("{\"State\":\"Calibrating\"}"));
   
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setCursor(0, 10);
-  display.println(F("Calibrating..."));
-  display.println(F("Auto-rotating..."));
-  display.display();
-  
   // NeoPixels turn solid blue during calibration
   for (int i = 0; i < 4; i++) {
     RGB.setPixelColor(i, 0x0000FF);
@@ -284,15 +235,6 @@ void runCalibration() {
 
   isCalibrated = true;
   Serial.println(F("{\"State\":\"Calibrated\"}"));
-
-  // Diagnostic calibration alignment checker
-  display.clearDisplay();
-  display.setCursor(0, 10);
-  display.println(F("Calibration Done!"));
-  display.setCursor(0, 25);
-  display.println(F("Ready to Track!"));
-  display.display();
-  delay(1000);
 }
 
 // Halts robot at junction and blocks until user sends direction via BLE or Joystick
@@ -307,14 +249,6 @@ void handleJunction() {
     RGB.setPixelColor(i, 0xFF8C00); // Dark Orange
   }
   RGB.show();
-
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setCursor(0, 0);
-  display.println(F("JUNCTION DETECTED"));
-  display.println(F("-----------------"));
-  display.println(F("Waiting for BLE..."));
-  display.display();
 
   // Send junction detected state to BLE
   Serial.println(F("{\"State\":\"Junction\"}"));
@@ -369,23 +303,13 @@ void handleJunction() {
   delay(80);
   beep_off;
 
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(15, 20);
-
   unsigned int calValues[NUM_SENSORS];
 
   if (strcmp(choice, "Straight") == 0) {
-    display.println(F("STRAIGHT"));
-    display.display();
-    
     forward();
     delay(250); // Drive straight to clear junction line
   } 
   else if (strcmp(choice, "Left") == 0) {
-    display.println(F("TURN LEFT"));
-    display.display();
-    
     left();
     delay(200); // Blind start to clear current line
     
@@ -400,9 +324,6 @@ void handleJunction() {
     delay(100);
   } 
   else if (strcmp(choice, "Right") == 0) {
-    display.println(F("TURN RIGHT"));
-    display.display();
-    
     right();
     delay(200); // Blind start to clear current line
     
@@ -454,11 +375,6 @@ void parseAndExecuteCommand(char* command) {
     }
     isTracking = true;
     Serial.println(F("{\"State\":\"Tracking\"}"));
-    display.clearDisplay();
-    display.setTextSize(2);
-    display.setCursor(20, 20);
-    display.println(F("TRACKING"));
-    display.display();
     
     // Reset PID direction pins
     digitalWrite(AIN1, LOW);
@@ -469,11 +385,6 @@ void parseAndExecuteCommand(char* command) {
     isTracking = false;
     stop();
     Serial.println(F("{\"State\":\"Stopped\"}"));
-    display.clearDisplay();
-    display.setTextSize(2);
-    display.setCursor(20, 20);
-    display.println(F("STOPPED"));
-    display.display();
   }
 
   // 3. Manual override controls (Only allowed when not line-tracking)
