@@ -14,6 +14,10 @@
 
 byte value;
 int Speed = 150;
+
+// Speed offsets to calibrate wheel imbalance (Carried over -3 right wheel offset)
+#define LEFT_SPEED_OFFSET   0  
+#define RIGHT_SPEED_OFFSET -3  
 void PCF8574Write(byte data);
 byte PCF8574Read();
 void forward();
@@ -23,18 +27,24 @@ void left();
 void stop();
 
 void setup() {
-  // put your setup code here, to run once:
   Serial.begin(115200);
   Serial.println("Joystick example!!");
   Wire.begin();
-  pinMode(PWMA,OUTPUT);                     
-  pinMode(AIN2,OUTPUT);      
-  pinMode(AIN1,OUTPUT);
-  pinMode(PWMB,OUTPUT);       
-  pinMode(AIN1,OUTPUT);     
-  pinMode(AIN2,OUTPUT);  
-  analogWrite(PWMA,150);
-  analogWrite(PWMB,150);
+  
+  // Configure speed control pins as outputs
+  pinMode(PWMA, OUTPUT);                     
+  pinMode(PWMB, OUTPUT);       
+
+  // Configure Left Motor direction pins as outputs
+  pinMode(AIN1, OUTPUT);
+  pinMode(AIN2, OUTPUT);      
+  
+  // Configure Right Motor direction pins as outputs (Fixed: previously duplicated AIN1/AIN2 instead of BIN1/BIN2)
+  pinMode(BIN1, OUTPUT);     
+  pinMode(BIN2, OUTPUT);  
+
+  analogWrite(PWMA, 150);
+  analogWrite(PWMB, 150);
   stop(); 
 }
 
@@ -95,22 +105,22 @@ byte PCF8574Read()
 
 void forward()
 {
-  analogWrite(PWMA,Speed);
-  analogWrite(PWMB,Speed);
-  digitalWrite(AIN1,LOW);
-  digitalWrite(AIN2,HIGH);
-  digitalWrite(BIN1,LOW);  
-  digitalWrite(BIN2,HIGH); 
+  analogWrite(PWMA, constrain(Speed + LEFT_SPEED_OFFSET, 0, 255));
+  analogWrite(PWMB, constrain(Speed + RIGHT_SPEED_OFFSET, 0, 255));
+  digitalWrite(AIN1, LOW);
+  digitalWrite(AIN2, HIGH);
+  digitalWrite(BIN1, LOW);  
+  digitalWrite(BIN2, HIGH); 
 }
 
 void backward()
 {
-  analogWrite(PWMA,Speed);
-  analogWrite(PWMB,Speed);
-  digitalWrite(AIN1,HIGH);
-  digitalWrite(AIN2,LOW);
-  digitalWrite(BIN1,HIGH); 
-  digitalWrite(BIN2,LOW);  
+  analogWrite(PWMA, constrain(Speed + LEFT_SPEED_OFFSET, 0, 255));
+  analogWrite(PWMB, constrain(Speed + RIGHT_SPEED_OFFSET, 0, 255));
+  digitalWrite(AIN1, HIGH);
+  digitalWrite(AIN2, LOW);
+  digitalWrite(BIN1, HIGH); 
+  digitalWrite(BIN2, LOW);  
 }
 
 void right()
