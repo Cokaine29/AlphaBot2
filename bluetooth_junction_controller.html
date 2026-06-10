@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlphaBot2 BLE Junction Controller</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #090717 0%, #130f28 50%, #04020a 100%);
+            --glass-bg: rgba(255, 255, 255, 0.025);
+            --glass-border: rgba(255, 255, 255, 0.07);
+            --glass-border-focus: rgba(255, 255, 255, 0.18);
+            --primary: #8a2be2;
+            --primary-glow: rgba(138, 43, 226, 0.4);
+            --success: #00e676;
+            --success-glow: rgba(0, 230, 118, 0.4);
+            --warning: #ff8c00;
+            --warning-glow: rgba(255, 140, 0, 0.4);
+            --danger: #ff1744;
+            --danger-glow: rgba(255, 23, 68, 0.4);
+            --text-main: #f3efff;
+            --text-muted: #948aa9;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 650px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-top: 10px;
+            margin-bottom: 5px;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            background: linear-gradient(90deg, #b388ff, #ea80fc, #82b1ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(234, 128, 252, 0.2);
+        }
+
+        p.subtitle {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+
+        /* Card System */
+        .card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 24px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .conn-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: var(--danger);
+            box-shadow: 0 0 10px var(--danger);
+            animation: pulse-red 2s infinite;
+        }
+
+        .dot.connected {
+            background-color: var(--success);
+            box-shadow: 0 0 10px var(--success);
+            animation: pulse-green 2s infinite;
+        }
+
+        .dot.connecting {
+            background-color: #ffb300;
+            box-shadow: 0 0 10px #ffb300;
+            animation: pulse-orange 1s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(255, 23, 68, 0); }
+            100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 23, 68, 0); }
+        }
+
+        @keyframes pulse-green {
+            0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(0, 230, 118, 0); }
+            100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(0, 230, 118, 0); }
+        }
+
+        @keyframes pulse-orange {
+            0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 179, 0, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(255, 179, 0, 0); }
+            100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 179, 0, 0); }
+        }
+
+        /* Buttons */
+        .btn {
+            background: linear-gradient(135deg, #8a2be2 0%, #4a148c 100%);
+            border: none;
+            border-radius: 14px;
+            color: white;
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px var(--primary-glow);
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(138, 43, 226, 0.6);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn.disconnect {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            box-shadow: none;
+        }
+
+        .btn.disconnect:hover {
+            background: rgba(255, 23, 68, 0.1);
+            border-color: rgba(255, 23, 68, 0.4);
+            box-shadow: 0 4px 15px rgba(255, 23, 68, 0.2);
+        }
+
+        /* State Badge Panel */
+        .state-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.015);
+            border-radius: 16px;
+            padding: 15px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .state-badge {
+            font-size: 0.9rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            padding: 6px 14px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s;
+        }
+
+        .state-badge.stopped {
+            background: rgba(255, 23, 68, 0.1);
+            color: #ff5252;
+            border-color: rgba(255, 23, 68, 0.25);
+        }
+
+        .state-badge.calibrating {
+            background: rgba(41, 121, 255, 0.1);
+            color: #448aff;
+            border-color: rgba(41, 121, 255, 0.25);
+            animation: flash-pulse 1s infinite alternate;
+        }
+
+        .state-badge.tracking {
+            background: rgba(0, 230, 118, 0.1);
+            color: #69f0ae;
+            border-color: rgba(0, 230, 118, 0.25);
+            box-shadow: 0 0 10px rgba(0, 230, 118, 0.15);
+        }
+
+        .state-badge.junction {
+            background: rgba(255, 140, 0, 0.15);
+            color: #ffd180;
+            border-color: rgba(255, 140, 0, 0.4);
+            box-shadow: 0 0 15px rgba(255, 140, 0, 0.25);
+            animation: flash-pulse 0.5s infinite alternate;
+        }
+
+        @keyframes flash-pulse {
+            from { opacity: 0.7; }
+            to { opacity: 1; transform: scale(1.03); }
+        }
+
+        /* Modes controls */
+        .mode-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 14px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            outline: none;
+        }
+
+        .mode-btn.calibrate {
+            background: rgba(41, 121, 255, 0.1);
+            border-color: rgba(41, 121, 255, 0.2);
+        }
+        .mode-btn.calibrate:hover {
+            background: rgba(41, 121, 255, 0.2);
+            border-color: rgba(41, 121, 255, 0.4);
+            box-shadow: 0 4px 15px rgba(41, 121, 255, 0.2);
+        }
+
+        .mode-btn.start-track {
+            background: rgba(0, 230, 118, 0.08);
+            border-color: rgba(0, 230, 118, 0.15);
+        }
+        .mode-btn.start-track:hover {
+            background: rgba(0, 230, 118, 0.18);
+            border-color: rgba(0, 230, 118, 0.35);
+            box-shadow: 0 4px 15px rgba(0, 230, 118, 0.2);
+        }
+
+        .mode-btn.stop-track {
+            background: rgba(255, 23, 68, 0.08);
+            border-color: rgba(255, 23, 68, 0.15);
+        }
+        .mode-btn.stop-track:hover {
+            background: rgba(255, 23, 68, 0.18);
+            border-color: rgba(255, 23, 68, 0.35);
+            box-shadow: 0 4px 15px rgba(255, 23, 68, 0.2);
+        }
+
+        /* Reflectance Sensors Grid Card */
+        .sensor-card {
+            gap: 20px;
+        }
+
+        .sensors-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            height: 120px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 18px;
+            padding: 15px 30px;
+            gap: 15px;
+        }
+
+        .sensor-channel {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+        }
+
+        .sensor-track-bg {
+            width: 16px;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .sensor-fill {
+            width: 100%;
+            height: 0%; /* Dynamic 0% to 100% */
+            background: linear-gradient(180deg, #b388ff, #8a2be2);
+            border-radius: 8px;
+            transition: height 0.1s ease-out, background-color 0.2s;
+            box-shadow: 0 0 10px rgba(138, 43, 226, 0.3);
+        }
+
+        .sensor-fill.active-junction {
+            background: linear-gradient(180deg, #ffd180, #ff8c00);
+            box-shadow: 0 0 15px rgba(255, 140, 0, 0.6);
+        }
+
+        .sensor-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Line Position Pointer */
+        .position-slider-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 0 5px;
+        }
+
+        .slider-track {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 4px;
+            position: relative;
+            width: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .slider-center-notch {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(-50%);
+        }
+
+        .slider-cursor {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ea80fc;
+            box-shadow: 0 0 10px #ea80fc, 0 0 20px rgba(234, 128, 252, 0.6);
+            position: absolute;
+            top: 50%;
+            left: 50%; /* Dynamic 0% to 100% */
+            transform: translate(-50%, -50%);
+            transition: left 0.1s ease-out;
+        }
+
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        /* D-Pad and overrides overrides */
+        .control-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 500px) {
+            .control-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .dpad-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 0;
+        }
+
+        .dpad {
+            display: grid;
+            grid-template-columns: 65px 65px 65px;
+            grid-template-rows: 65px 65px 65px;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.015);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 50%;
+            padding: 10px;
+        }
+
+        .dpad-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            outline: none;
+        }
+
+        .dpad-btn:hover {
+            background: rgba(255, 255, 255, 0.09);
+        }
+
+        .dpad-btn:active, .dpad-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--primary-glow);
+            transform: scale(0.95);
+        }
+
+        .dpad-btn.up { grid-column: 2; grid-row: 1; }
+        .dpad-btn.left { grid-column: 1; grid-row: 2; }
+        .dpad-btn.stop { 
+            grid-column: 2; 
+            grid-row: 2; 
+            background: rgba(255, 23, 68, 0.1); 
+            border-color: rgba(255, 23, 68, 0.2);
+        }
+        .dpad-btn.stop:active {
+            background: var(--danger);
+            border-color: var(--danger);
+        }
+        .dpad-btn.right { grid-column: 3; grid-row: 2; }
+        .dpad-btn.down { grid-column: 2; grid-row: 3; }
+
+        .horn-btn {
+            background: rgba(255, 179, 0, 0.08);
+            border: 1px solid rgba(255, 179, 0, 0.2);
+            border-radius: 14px;
+            color: #ffb300;
+            padding: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+            outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .horn-btn:active, .horn-btn.active {
+            background: #ffb300;
+            color: #110e20;
+            box-shadow: 0 0 20px rgba(255, 179, 0, 0.4);
+        }
+
+        /* Speed Tabs */
+        .speed-tabs {
+            display: flex;
+            gap: 8px;
+            margin-top: 5px;
+        }
+
+        .speed-tab {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            color: var(--text-muted);
+            padding: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            outline: none;
+        }
+
+        .speed-tab.active {
+            background: linear-gradient(135deg, #00d2ff 0%, #0066ff 100%);
+            color: white;
+            border-color: #00d2ff;
+            box-shadow: 0 4px 15px rgba(0, 210, 255, 0.3);
+        }
+
+        /* Console log */
+        .console-card {
+            font-family: 'JetBrains Mono', monospace;
+            gap: 10px;
+            padding: 18px 24px;
+        }
+
+        .console-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .console-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .console-terminal {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            height: 120px;
+            padding: 12px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            scroll-behavior: smooth;
+        }
+
+        .console-line {
+            line-height: 1.3;
+            color: var(--text-muted);
+            word-break: break-all;
+        }
+
+        .console-line.tx { color: #00e5ff; }
+        .console-line.rx { color: #00e676; }
+        .console-line.info { color: #d1c4e9; }
+        .console-line.error { color: var(--danger); }
+
+        .clear-console-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.8rem;
+            text-decoration: underline;
+            outline: none;
+        }
+
+        .clear-console-btn:hover { color: var(--text-main); }
+
+        /* Keyboard tips card */
+        .tips-card {
+            border-radius: 18px;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        span.kbd {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 0.75rem;
+            font-family: inherit;
+            color: var(--text-main);
+            box-shadow: 0 2px 0 rgba(0,0,0,0.3);
+        }
+
+        /* ⚠️ JUNCTION DECISION OVERLAY MODAL ⚠️ */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(4, 2, 10, 0.75);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background: rgba(20, 16, 38, 0.7);
+            border: 2px solid rgba(255, 140, 0, 0.3);
+            border-radius: 32px;
+            padding: 35px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 140, 0, 0.15);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            transform: scale(0.85) translateY(20px);
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+        }
+
+        .modal-overlay.active .modal-card {
+            transform: scale(1) translateY(0);
+        }
+
+        .modal-title-row {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .warning-icon {
+            font-size: 3rem;
+            animation: bounce-alert 1.5s infinite alternate;
+        }
+
+        @keyframes bounce-alert {
+            from { transform: translateY(0); text-shadow: 0 0 10px var(--warning-glow); }
+            to { transform: translateY(-5px); text-shadow: 0 0 25px rgba(255, 140, 0, 0.7); }
+        }
+
+        .modal-card h2 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #ffd180;
+            letter-spacing: 0.5px;
+        }
+
+        .modal-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        /* Directional Grid Buttons in Modal */
+        .modal-dir-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+
+        .dir-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            color: var(--text-main);
+            padding: 20px 10px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            outline: none;
+        }
+
+        .dir-btn .dir-arrow {
+            font-size: 2rem;
+            color: var(--text-muted);
+            transition: transform 0.2s, color 0.2s;
+        }
+
+        .dir-btn:hover {
+            background: rgba(255, 140, 0, 0.08);
+            border-color: rgba(255, 140, 0, 0.4);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(255, 140, 0, 0.15);
+        }
+
+        .dir-btn:hover .dir-arrow {
+            color: #ffd180;
+            transform: scale(1.15);
+        }
+
+        .dir-btn.left:hover .dir-arrow { transform: translate(-3px) scale(1.15); }
+        .dir-btn.straight:hover .dir-arrow { transform: translateY(-3px) scale(1.15); }
+        .dir-btn.right:hover .dir-arrow { transform: translate(3px) scale(1.15); }
+
+        .dir-btn:active {
+            transform: scale(0.95);
+            background: rgba(255, 140, 0, 0.2);
+        }
+
+        /* Keyboard tips in modal */
+        .modal-kbd-tip {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>ALPHABOT2</h1>
+        <p class="subtitle">BLE Junction & Line-Tracking Dashboard</p>
+    </header>
+
+    <!-- Connection Card -->
+    <div class="card">
+        <div class="conn-bar">
+            <div class="status-indicator">
+                <div class="dot" id="connDot"></div>
+                <span id="connStatusText">Disconnected</span>
+            </div>
+            <button class="btn" id="connectBtn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                Connect Bot
+            </button>
+        </div>
+    </div>
+
+    <!-- Telemetry State & Calibration Controls -->
+    <div class="card">
+        <div class="state-panel">
+            <div>
+                <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; font-weight: 600;">Robot State</div>
+                <div style="font-size: 1.1rem; font-weight: 800; margin-top: 3px;" id="stateText">Link Offline</div>
+            </div>
+            <span class="state-badge" id="stateBadge">Disconnected</span>
+        </div>
+
+        <div class="mode-row">
+            <button class="mode-btn calibrate" id="btnCalibrate" disabled>Calibrate Sensors</button>
+            <button class="mode-btn start-track" id="btnTrack" disabled>Start Line Tracking</button>
+        </div>
+    </div>
+
+    <!-- Live Reflectance Sensors Visualizer -->
+    <div class="card sensor-card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="console-title">Live Sensor Array (Reflectance)</div>
+            <div style="font-size: 0.75rem; font-family:'JetBrains Mono', monospace; color:var(--text-muted);" id="rawSensorsText">S: [-, -, -, -, -]</div>
+        </div>
+        
+        <div class="sensors-container">
+            <div class="sensor-channel">
+                <div class="sensor-track-bg">
+                    <div class="sensor-fill" id="fillS0"></div>
+                </div>
+                <div class="sensor-label">S0</div>
+            </div>
+            <div class="sensor-channel">
+                <div class="sensor-track-bg">
+                    <div class="sensor-fill" id="fillS1"></div>
+                </div>
+                <div class="sensor-label">S1</div>
+            </div>
+            <div class="sensor-channel">
+                <div class="sensor-track-bg">
+                    <div class="sensor-fill" id="fillS2"></div>
+                </div>
+                <div class="sensor-label">S2</div>
+            </div>
+            <div class="sensor-channel">
+                <div class="sensor-track-bg">
+                    <div class="sensor-fill" id="fillS3"></div>
+                </div>
+                <div class="sensor-label">S3</div>
+            </div>
+            <div class="sensor-channel">
+                <div class="sensor-track-bg">
+                    <div class="sensor-fill" id="fillS4"></div>
+                </div>
+                <div class="sensor-label">S4</div>
+            </div>
+        </div>
+
+        <!-- Position pointer -->
+        <div class="position-slider-container">
+            <div style="display:flex; justify-content:space-between; font-size: 0.75rem; color:var(--text-muted); font-weight: 600;">
+                <span>Line Alignment Position</span>
+                <span id="posValueText">Pos: -</span>
+            </div>
+            <div class="slider-track">
+                <div class="slider-center-notch"></div>
+                <div class="slider-cursor" id="sliderCursor"></div>
+            </div>
+            <div class="slider-labels">
+                <span>◀ Left Edge</span>
+                <span>Center Line</span>
+                <span>Right Edge ▶</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- D-Pad Manual overrides (D-Pad) -->
+    <div class="control-layout" id="manualControlsPanel">
+        <!-- Manual Steering Card -->
+        <div class="card">
+            <div class="console-title">Manual Override Steering</div>
+            <div class="dpad-section">
+                <div class="dpad">
+                    <button class="dpad-btn up" id="btnForward" title="W / ↑" disabled>▲</button>
+                    <button class="dpad-btn left" id="btnLeft" title="A / ◀" disabled>◀</button>
+                    <button class="dpad-btn stop" id="btnStop" title="Space" disabled>■</button>
+                    <button class="dpad-btn right" id="btnRight" title="D / ▶" disabled>▶</button>
+                    <button class="dpad-btn down" id="btnBackward" title="S / ↓" disabled>▼</button>
+                </div>
+            </div>
+            <button class="horn-btn" id="btnHorn" title="H" disabled>📢 HORN BUZZER</button>
+        </div>
+
+        <!-- Utility settings -->
+        <div class="card" style="justify-content: space-between;">
+            <div>
+                <div class="console-title">Manual Drive Speed</div>
+                <div class="speed-tabs">
+                    <button class="speed-tab" id="speedLow" disabled>LOW</button>
+                    <button class="speed-tab active" id="speedMedium" disabled>MED</button>
+                    <button class="speed-tab" id="speedHigh" disabled>HIGH</button>
+                </div>
+            </div>
+            <div class="tips-card" style="background: rgba(255,255,255,0.01); border:1px solid rgba(255,255,255,0.03); margin-bottom: 5px;">
+                <div style="line-height: 1.45;">
+                    💡 D-Pad is active in <strong>Stop</strong> mode. 
+                    Drive with keys <span class="kbd">W</span> <span class="kbd">A</span> <span class="kbd">S</span> <span class="kbd">D</span> or arrows.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Telemetry Outbox & Logs -->
+    <div class="card console-card">
+        <div class="console-header">
+            <div class="console-title">Telemetry & BLE Logs</div>
+            <button class="clear-console-btn" id="btnClearLog">Clear</button>
+        </div>
+        <div class="console-terminal" id="terminalLog">
+            <div class="console-line info">Ready. Click "Connect Bot" to link via Web Bluetooth...</div>
+        </div>
+    </div>
+</div>
+
+<!-- ⚠️ JUNCTION DECISION OVERLAY MODAL ⚠️ -->
+<div class="modal-overlay" id="junctionModal">
+    <div class="modal-card">
+        <div class="modal-title-row">
+            <div class="warning-icon">⚠️</div>
+            <h2>Junction Detected!</h2>
+        </div>
+        <p>
+            The robot has arrived at a road node/junction and is holding position. Choose steering vector:
+        </p>
+        <div class="modal-dir-grid">
+            <button class="dir-btn left" id="modalLeftBtn">
+                <span class="dir-arrow">◀</span>
+                <span>Turn Left</span>
+            </button>
+            <button class="dir-btn straight" id="modalStraightBtn">
+                <span class="dir-arrow">▲</span>
+                <span>Go Straight</span>
+            </button>
+            <button class="dir-btn right" id="modalRightBtn">
+                <span class="dir-arrow">▶</span>
+                <span>Turn Right</span>
+            </button>
+        </div>
+        <div class="modal-kbd-tip">
+            Or press keys: <span class="kbd">◀</span>/<span class="kbd">A</span> (Left), <span class="kbd">▲</span>/<span class="kbd">W</span> (Straight), <span class="kbd">▶</span>/<span class="kbd">D</span> (Right)
+        </div>
+    </div>
+</div>
+
+<script>
+    // BLE Service and Characteristic UUIDs
+    const HM10_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
+    const HM10_CHAR_UUID    = '0000ffe1-0000-1000-8000-00805f9b34fb';
+    
+    const NORDIC_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+    const NORDIC_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // Client writes
+    const NORDIC_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e'; // Client notifies
+
+    // Connection State
+    let bleDevice = null;
+    let txCharacteristic = null; // Write
+    let rxCharacteristic = null; // Notify
+    let isConnected = false;
+
+    // Movement Key Tracker
+    const activeStates = {
+        Forward: false,
+        Backward: false,
+        Left: false,
+        Right: false,
+        Horn: false
+    };
+
+    // Tracking flags
+    let isRobotTracking = false;
+    let isRobotJunction = false;
+
+    // DOM References
+    const connectBtn = document.getElementById('connectBtn');
+    const connDot = document.getElementById('connDot');
+    const connStatusText = document.getElementById('connStatusText');
+    const terminalLog = document.getElementById('terminalLog');
+    const btnClearLog = document.getElementById('btnClearLog');
+    const stateText = document.getElementById('stateText');
+    const stateBadge = document.getElementById('stateBadge');
+    
+    // Command Buttons
+    const btnCalibrate = document.getElementById('btnCalibrate');
+    const btnTrack = document.getElementById('btnTrack');
+    
+    // D-Pad and overrides
+    const btnForward = document.getElementById('btnForward');
+    const btnBackward = document.getElementById('btnBackward');
+    const btnLeft = document.getElementById('btnLeft');
+    const btnRight = document.getElementById('btnRight');
+    const btnStop = document.getElementById('btnStop');
+    const btnHorn = document.getElementById('btnHorn');
+    const speedLow = document.getElementById('speedLow');
+    const speedMedium = document.getElementById('speedMedium');
+    const speedHigh = document.getElementById('speedHigh');
+
+    // Sensors fill bars
+    const fillS0 = document.getElementById('fillS0');
+    const fillS1 = document.getElementById('fillS1');
+    const fillS2 = document.getElementById('fillS2');
+    const fillS3 = document.getElementById('fillS3');
+    const fillS4 = document.getElementById('fillS4');
+    const rawSensorsText = document.getElementById('rawSensorsText');
+
+    // Slider
+    const sliderCursor = document.getElementById('sliderCursor');
+    const posValueText = document.getElementById('posValueText');
+
+    // Modal
+    const junctionModal = document.getElementById('junctionModal');
+    const modalLeftBtn = document.getElementById('modalLeftBtn');
+    const modalStraightBtn = document.getElementById('modalStraightBtn');
+    const modalRightBtn = document.getElementById('modalRightBtn');
+
+    // Logging helper
+    function logToTerminal(message, type = 'info') {
+        const line = document.createElement('div');
+        line.className = `console-line ${type}`;
+        const timestamp = new Date().toLocaleTimeString();
+        line.textContent = `[${timestamp}] ${message}`;
+        terminalLog.appendChild(line);
+        terminalLog.scrollTop = terminalLog.scrollHeight;
+    }
+
+    // Connect & Set Notification listeners
+    connectBtn.addEventListener('click', async () => {
+        if (isConnected) {
+            disconnectBLE();
+            return;
+        }
+
+        logToTerminal('Searching for Web Bluetooth devices...', 'info');
+        connDot.className = 'dot connecting';
+        connStatusText.textContent = 'Connecting...';
+
+        try {
+            bleDevice = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: [
+                    HM10_SERVICE_UUID,
+                    NORDIC_SERVICE_UUID
+                ]
+            });
+
+            logToTerminal(`GATT Connection started: ${bleDevice.name}...`, 'info');
+            bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+            const server = await bleDevice.gatt.connect();
+            logToTerminal('GATT link established. Scoping UART ports...', 'info');
+
+            // 1. Try HM-10 service
+            try {
+                const service = await server.getPrimaryService(HM10_SERVICE_UUID);
+                txCharacteristic = await service.getCharacteristic(HM10_CHAR_UUID);
+                rxCharacteristic = txCharacteristic; // HM-10 uses the same characteristic for RX & TX
+                logToTerminal('Connected via standard HM-10 UART Service FFE0.', 'rx');
+                await startTelemetryNotifications();
+                setConnectedUI();
+                return;
+            } catch (e) {
+                logToTerminal('HM-10 service FFE0 not present. Scanning Nordic UART...', 'info');
+            }
+
+            // 2. Try Nordic UART service
+            try {
+                const service = await server.getPrimaryService(NORDIC_SERVICE_UUID);
+                txCharacteristic = await service.getCharacteristic(NORDIC_RX_CHAR_UUID);
+                rxCharacteristic = await service.getCharacteristic(NORDIC_TX_CHAR_UUID);
+                logToTerminal('Connected via Nordic UART Service.', 'rx');
+                await startTelemetryNotifications();
+                setConnectedUI();
+                return;
+            } catch (e) {
+                logToTerminal('Nordic UART service not found.', 'error');
+            }
+
+            throw new Error('Device does not support HM-10 or Nordic UART standards.');
+        } catch (error) {
+            logToTerminal(`GATT Connection Error: ${error.message}`, 'error');
+            resetDisconnectUI();
+        }
+    });
+
+    // Subscribes browser to BLE notifications
+    async function startTelemetryNotifications() {
+        if (!rxCharacteristic) return;
+        logToTerminal('Subscribing to telemetry notifications...', 'info');
+        await rxCharacteristic.startNotifications();
+        rxCharacteristic.addEventListener('characteristicvaluechanged', handleBLENotification);
+        logToTerminal('Successfully listening to robot telemetry notifications.', 'rx');
+    }
+
+    // BLE notification stream reassembly
+    let bleBuffer = '';
+    function handleBLENotification(event) {
+        const value = event.target.value;
+        const decoder = new TextDecoder();
+        const chunk = decoder.decode(value);
+        bleBuffer += chunk;
+
+        let newlineIndex;
+        while ((newlineIndex = bleBuffer.indexOf('\n')) !== -1) {
+            const line = bleBuffer.slice(0, newlineIndex).trim();
+            bleBuffer = bleBuffer.slice(newlineIndex + 1);
+            if (line) {
+                parseIncomingRobotJSON(line);
+            }
+        }
+    }
+
+    // Parses JSON telemetry line
+    function parseIncomingRobotJSON(line) {
+        // Log to console if it is NOT standard repetitive telemetry to keep console readable
+        if (!line.includes('"Sensors"') && !line.includes('"Pos"')) {
+            logToTerminal(`RX: ${line}`, 'rx');
+        }
+
+        try {
+            const data = JSON.parse(line);
+            
+            // 1. Process line-tracking telemetry values
+            if (data.Sensors && Array.isArray(data.Sensors)) {
+                updateSensorVisualizer(data.Sensors, data.Pos);
+            }
+
+            // 2. Process robot status states
+            if (data.State) {
+                updateRobotState(data.State);
+            }
+        } catch (err) {
+            // Ignore incomplete fragments that failed parsing
+        }
+    }
+
+    // Updates live sensors height & values
+    function updateSensorVisualizer(sensors, pos) {
+        rawSensorsText.textContent = `S: [${sensors.join(', ')}]`;
+        
+        const fills = [fillS0, fillS1, fillS2, fillS3, fillS4];
+        sensors.forEach((val, i) => {
+            const percentage = Math.min((val / 1000) * 100, 100);
+            fills[i].style.height = `${percentage}%`;
+            
+            // Alert visual indicator if outer sensors hit junction branches (> 750)
+            if (val > 750 && (i === 0 || i === 4)) {
+                fills[i].classList.add('active-junction');
+            } else {
+                fills[i].classList.remove('active-junction');
+            }
+        });
+
+        if (pos !== undefined && pos >= 0) {
+            posValueText.textContent = `Pos: ${pos}`;
+            const alignmentPercent = (pos / 4000) * 100;
+            sliderCursor.style.left = `${alignmentPercent}%`;
+        }
+    }
+
+    // State machine coordinator
+    function updateRobotState(state) {
+        stateBadge.className = 'state-badge';
+        
+        if (state === 'Stopped') {
+            stateText.textContent = 'Robot Stopped / Idle';
+            stateBadge.textContent = 'Stopped';
+            stateBadge.classList.add('stopped');
+            isRobotTracking = false;
+            isRobotJunction = false;
+            setJunctionModal(false);
+            toggleManualOverrideControls(true);
+            btnTrack.textContent = 'Start Line Tracking';
+            btnTrack.className = 'mode-btn start-track';
+        } 
+        else if (state === 'Calibrating') {
+            stateText.textContent = 'Auto-Calibrating...';
+            stateBadge.textContent = 'Calibrating';
+            stateBadge.classList.add('calibrating');
+            setJunctionModal(false);
+            toggleManualOverrideControls(false);
+        }
+        else if (state === 'Calibrated') {
+            stateText.textContent = 'Calibration Completed';
+            stateBadge.textContent = 'Ready';
+            stateBadge.classList.add('stopped');
+            setJunctionModal(false);
+            toggleManualOverrideControls(true);
+            btnTrack.textContent = 'Start Line Tracking';
+            btnTrack.className = 'mode-btn start-track';
+        }
+        else if (state === 'Tracking') {
+            stateText.textContent = 'PID Line Following Active';
+            stateBadge.textContent = 'Tracking';
+            stateBadge.classList.add('tracking');
+            isRobotTracking = true;
+            isRobotJunction = false;
+            setJunctionModal(false);
+            toggleManualOverrideControls(false);
+            btnTrack.textContent = 'Stop Line Tracking';
+            btnTrack.className = 'mode-btn stop-track';
+        }
+        else if (state === 'Junction') {
+            stateText.textContent = '⚠️ Halted at Road Junction';
+            stateBadge.textContent = 'Junction';
+            stateBadge.classList.add('junction');
+            isRobotJunction = true;
+            toggleManualOverrideControls(false);
+            setJunctionModal(true);
+        }
+    }
+
+    // Controls manual buttons status
+    function toggleManualOverrideControls(enabled) {
+        const controls = [
+            btnForward, btnBackward, btnLeft, btnRight, btnStop, btnHorn,
+            speedLow, speedMedium, speedHigh
+        ];
+        controls.forEach(c => c.disabled = !enabled);
+    }
+
+    // Toggle Modal Overlay
+    function setJunctionModal(visible) {
+        if (visible) {
+            junctionModal.classList.add('active');
+        } else {
+            junctionModal.classList.remove('active');
+        }
+    }
+
+    // UI Updates on connection
+    function setConnectedUI() {
+        isConnected = true;
+        connDot.className = 'dot connected';
+        connStatusText.textContent = `Connected (${bleDevice.name})`;
+        connectBtn.textContent = 'Disconnect';
+        connectBtn.className = 'btn disconnect';
+        
+        btnCalibrate.disabled = false;
+        btnTrack.disabled = false;
+        toggleManualOverrideControls(true);
+        updateRobotState('Stopped');
+    }
+
+    // Reset UI states on disconnect
+    function resetDisconnectUI() {
+        isConnected = false;
+        txCharacteristic = null;
+        rxCharacteristic = null;
+        bleDevice = null;
+        connDot.className = 'dot';
+        connStatusText.textContent = 'Disconnected';
+        connectBtn.textContent = 'Connect Bot';
+        connectBtn.className = 'btn';
+        
+        btnCalibrate.disabled = true;
+        btnTrack.disabled = true;
+        toggleManualOverrideControls(false);
+        
+        stateText.textContent = 'Link Offline';
+        stateBadge.className = 'state-badge';
+        stateBadge.textContent = 'Disconnected';
+        
+        setJunctionModal(false);
+        isRobotTracking = false;
+        isRobotJunction = false;
+
+        // Reset sensor bars
+        fillS0.style.height = '0%';
+        fillS1.style.height = '0%';
+        fillS2.style.height = '0%';
+        fillS3.style.height = '0%';
+        fillS4.style.height = '0%';
+        rawSensorsText.textContent = 'S: [-, -, -, -, -]';
+        sliderCursor.style.left = '50%';
+        posValueText.textContent = 'Pos: -';
+    }
+
+    function disconnectBLE() {
+        if (bleDevice && bleDevice.gatt.connected) {
+            logToTerminal('Disconnecting Bluetooth...', 'info');
+            bleDevice.gatt.disconnect();
+        } else {
+            resetDisconnectUI();
+        }
+    }
+
+    function onDisconnected() {
+        logToTerminal('Bluetooth link severed.', 'error');
+        resetDisconnectUI();
+    }
+
+    // BLE Send Queue (prevents GATT operation overlaps)
+    let sendQueue = [];
+    let isSending = false;
+
+    async function processQueue() {
+        if (isSending || sendQueue.length === 0) return;
+        isSending = true;
+
+        while (sendQueue.length > 0) {
+            const { jsonObject, resolve, reject } = sendQueue[0];
+            const jsonStr = JSON.stringify(jsonObject);
+
+            if (!isConnected || !txCharacteristic) {
+                logToTerminal(`TX Denied (Offline): ${jsonStr}`, 'error');
+                sendQueue.shift();
+                reject(new Error("Not connected"));
+                continue;
+            }
+
+            try {
+                const encoder = new TextEncoder();
+                const dataBuffer = encoder.encode(jsonStr + '\n'); // Append newline delimiter
+                
+                logToTerminal(`TX: ${jsonStr}`, 'tx');
+                await txCharacteristic.writeValue(dataBuffer);
+                sendQueue.shift();
+                resolve();
+            } catch (err) {
+                logToTerminal(`TX Fail: ${err.message}`, 'error');
+                if (err.message.includes("GATT operation already in progress")) {
+                    await new Promise(r => setTimeout(r, 50));
+                } else {
+                    sendQueue.shift();
+                    reject(err);
+                }
+            }
+        }
+        isSending = false;
+    }
+
+    function sendPacket(jsonObject) {
+        return new Promise((resolve, reject) => {
+            sendQueue.push({ jsonObject, resolve, reject });
+            processQueue();
+        });
+    }
+
+    // Toggle Tracking & Calibration
+    btnCalibrate.addEventListener('click', () => {
+        sendPacket({ Calibrate: "Start" });
+    });
+
+    btnTrack.addEventListener('click', () => {
+        if (isRobotTracking) {
+            sendPacket({ LineTracking: "Stop" });
+        } else {
+            sendPacket({ LineTracking: "Start" });
+        }
+    });
+
+    // Momentary State Change Driver
+    function handleStateChange(key, state) {
+        if (isRobotTracking || isRobotJunction) return; // Ignore manual overrides during automatic modes
+        if (activeStates[key] === state) return; 
+        activeStates[key] = state;
+        
+        const payload = {};
+        if (key === 'BZ') {
+            payload[key] = state ? 'on' : 'off';
+        } else {
+            payload[key] = state ? 'Down' : 'Up';
+        }
+        sendPacket(payload);
+    }
+
+    // Momentary button mapping
+    function setupMomentaryBtn(btnElement, stateKey, activeClass = 'active') {
+        const startTrigger = (e) => {
+            e.preventDefault();
+            btnElement.classList.add(activeClass);
+            handleStateChange(stateKey, true);
+        };
+        const endTrigger = (e) => {
+            e.preventDefault();
+            btnElement.classList.remove(activeClass);
+            handleStateChange(stateKey, false);
+        };
+
+        btnElement.addEventListener('mousedown', startTrigger);
+        btnElement.addEventListener('touchstart', startTrigger, {passive: false});
+        btnElement.addEventListener('mouseup', endTrigger);
+        btnElement.addEventListener('mouseleave', endTrigger);
+        btnElement.addEventListener('touchend', endTrigger, {passive: false});
+    }
+
+    setupMomentaryBtn(btnForward, 'Forward');
+    setupMomentaryBtn(btnBackward, 'Backward');
+    setupMomentaryBtn(btnLeft, 'Left');
+    setupMomentaryBtn(btnRight, 'Right');
+    setupMomentaryBtn(btnHorn, 'BZ');
+
+    btnStop.addEventListener('click', () => {
+        Object.keys(activeStates).forEach(k => activeStates[k] = false);
+        sendPacket({ Stop: "Down" });
+    });
+
+    // Speed modifiers
+    function setSpeed(valueStr, activeBtn) {
+        document.querySelectorAll('.speed-tab').forEach(b => b.classList.remove('active'));
+        activeBtn.classList.add('active');
+        const payload = {};
+        payload[valueStr] = 'Down';
+        sendPacket(payload);
+    }
+    speedLow.addEventListener('click', () => setSpeed('Low', speedLow));
+    speedMedium.addEventListener('click', () => setSpeed('Medium', speedMedium));
+    speedHigh.addEventListener('click', () => setSpeed('High', speedHigh));
+
+    // Modal steering selection buttons
+    function selectJunctionDirection(dir) {
+        sendPacket({ Go: dir });
+        setJunctionModal(false);
+        // Optimistically show tracking state again
+        updateRobotState('Tracking');
+    }
+    modalLeftBtn.addEventListener('click', () => selectJunctionDirection('Left'));
+    modalStraightBtn.addEventListener('click', () => selectJunctionDirection('Straight'));
+    modalRightBtn.addEventListener('click', () => selectJunctionDirection('Right'));
+
+    // Clear Terminal Log
+    btnClearLog.addEventListener('click', () => {
+        terminalLog.innerHTML = '<div class="console-line info">Log buffer cleared.</div>';
+    });
+
+    // Keyboard controls
+    const keyMap = {
+        'KeyW': { stateKey: 'Forward', element: btnForward },
+        'ArrowUp': { stateKey: 'Forward', element: btnForward },
+        'KeyS': { stateKey: 'Backward', element: btnBackward },
+        'ArrowDown': { stateKey: 'Backward', element: btnBackward },
+        'KeyA': { stateKey: 'Left', element: btnLeft },
+        'ArrowLeft': { stateKey: 'Left', element: btnLeft },
+        'KeyD': { stateKey: 'Right', element: btnRight },
+        'ArrowRight': { stateKey: 'Right', element: btnRight },
+        'KeyH': { stateKey: 'BZ', element: btnHorn },
+        'Space': { stateKey: 'BZ', element: btnHorn }
+    };
+
+    window.addEventListener('keydown', (e) => {
+        // 1. If at Junction, map W/Up -> Straight, A/Left -> Turn Left, D/Right -> Turn Right
+        if (isRobotJunction) {
+            if (e.code === 'KeyW' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                modalStraightBtn.click();
+            } else if (e.code === 'KeyA' || e.code === 'ArrowLeft') {
+                e.preventDefault();
+                modalLeftBtn.click();
+            } else if (e.code === 'KeyD' || e.code === 'ArrowRight') {
+                e.preventDefault();
+                modalRightBtn.click();
+            }
+            return;
+        }
+
+        // 2. Normal Manual Controls
+        if (isRobotTracking) return;
+        if (e.code === 'Digit1') { speedLow.click(); return; }
+        if (e.code === 'Digit2') { speedMedium.click(); return; }
+        if (e.code === 'Digit3') { speedHigh.click(); return; }
+
+        const mapping = keyMap[e.code];
+        if (mapping && isConnected) {
+            e.preventDefault();
+            mapping.element.classList.add('active');
+            handleStateChange(mapping.stateKey, true);
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (isRobotTracking || isRobotJunction) return;
+        const mapping = keyMap[e.code];
+        if (mapping && isConnected) {
+            e.preventDefault();
+            mapping.element.classList.remove('active');
+            handleStateChange(mapping.stateKey, false);
+        }
+    });
+</script>
+</body>
+</html>
