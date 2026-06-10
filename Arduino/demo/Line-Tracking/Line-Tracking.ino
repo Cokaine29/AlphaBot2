@@ -19,9 +19,13 @@
 #define beep_on  PCF8574Write(0xDF & PCF8574Read())
 #define beep_off PCF8574Write(0x20 | PCF8574Read())
 
-Adafruit_SSD1306 display(OLED_RESET, OLED_SA0);
+Adafruit_SSD1306 display(128, 64, &Wire, OLED_RESET);
 
 TRSensors trs =   TRSensors();
+
+// Speed offsets to calibrate wheel imbalance (Configured to 0, 0 as requested)
+#define LEFT_SPEED_OFFSET   0  
+#define RIGHT_SPEED_OFFSET  0  
 unsigned int sensorValues[NUM_SENSORS];
 unsigned int last_proportional = 0;
 unsigned int position;
@@ -37,8 +41,13 @@ uint32_t Wheel(byte WheelPos);
 
 void setup() {
   Serial.begin(115200);
+  
+  // Set OLED address select pin LOW to secure 0x3C address
+  pinMode(OLED_SA0, OUTPUT);
+  digitalWrite(OLED_SA0, LOW);
+  
   // by default, we'll generate the high voltage from the 3.3v line internally! (neat!)
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize with the I2C addr 0x3D (for the 128x64)
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize with the I2C addr 0x3C (for the 128x64)
   // init done
   
   // Show image buffer on the display hardware.
@@ -66,8 +75,8 @@ void setup() {
   pinMode(AIN2,OUTPUT);      
   pinMode(AIN1,OUTPUT);
   pinMode(PWMB,OUTPUT);       
-  pinMode(AIN1,OUTPUT);     
-  pinMode(AIN2,OUTPUT);  
+  pinMode(BIN1,OUTPUT);     // Fixed: previously duplicated AIN1
+  pinMode(BIN2,OUTPUT);     // Fixed: previously duplicated AIN2
   analogWrite(PWMA,0);
   analogWrite(PWMB,0);
   digitalWrite(AIN2,HIGH);
@@ -193,14 +202,14 @@ void loop() {
     
   if (power_difference < 0)
   {
-     analogWrite(PWMA,maximum + power_difference);
-     analogWrite(PWMB,maximum);
-   }
-   else
-   {
-      analogWrite(PWMA,maximum);
-      analogWrite(PWMB,maximum - power_difference);
-   }      
+     analogWrite(PWMA, constrain(maximum + power_difference + LEFT_SPEED_OFFSET, 0, 255));
+     analogWrite(PWMB, constrain(maximum + RIGHT_SPEED_OFFSET, 0, 255));
+  }
+  else
+  {
+     analogWrite(PWMA, constrain(maximum + LEFT_SPEED_OFFSET, 0, 255));
+     analogWrite(PWMB, constrain(maximum - power_difference + RIGHT_SPEED_OFFSET, 0, 255));
+  }      
   
   if (sensorValues[1] > 900 && sensorValues[2] > 900 && sensorValues[3] > 900)
   {
