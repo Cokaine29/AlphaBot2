@@ -43,7 +43,7 @@ Driving commands are momentary. The robot drives when a key is pressed (`"Down"`
 *   **Backward**: `{"Backward": "Down"}` to drive backward; `{"Backward": "Up"}` to stop.
 *   **Left Turn**: `{"Left": "Down"}` to spin left; `{"Left": "Up"}` to stop.
 *   **Right Turn**: `{"Right": "Down"}` to spin right; `{"Right": "Up"}` to stop.
-*   **Global Stop**: `{"Stop": "Down"}` halts both motors instantly and reactivates the RGB rainbow cycle animation.
+*   **Global Stop**: `{"Stop": "Down"}` halts both motors instantly.
 
 ### 2. Speed Configuration
 *   **Low Speed (100)**: `{"Low": "Down"}`
@@ -59,6 +59,83 @@ Set custom solid hex-RGB lighting on all 4 LEDs by sending a string containing c
 *   **Red**: `{"RGB": "255,0,0"}`
 *   **Cyan**: `{"RGB": "0,255,255"}`
 *   **Yellow**: `{"RGB": "255,230,0"}`
+
+---
+
+## 📊 Flowchart
+
+```mermaid
+graph TD
+    Start([Start Loop]) --> CheckSkip{Stream available?}
+    CheckSkip -- Yes --> SkipWS[Skip whitespace in stream]
+    CheckSkip -- No --> LoopEnd([End Loop])
+    
+    SkipWS --> Parse{Can parse aJsonObject msg?}
+    Parse -- Yes --> Execute[Call ComExecution msg]
+    Parse -- No --> LoopEnd
+    
+    Execute --> GetForward{Is 'Forward' key present?}
+    GetForward -- Yes --> ForwardCmd[If 'Down': Drive Forward<br>If 'Up': Stop Motors]
+    GetForward -- No --> GetBackward{Is 'Backward' key present?}
+    
+    GetBackward -- Yes --> BackwardCmd[If 'Down': Drive Backward<br>If 'Up': Stop Motors]
+    GetBackward -- No --> GetLeft{Is 'Left' key present?}
+    
+    GetLeft -- Yes --> LeftCmd[If 'Down': Spin Left<br>If 'Up': Stop Motors]
+    GetLeft -- No --> GetRight{Is 'Right' key present?}
+    
+    GetRight -- Yes --> RightCmd[If 'Down': Spin Right<br>If 'Up': Stop Motors]
+    GetRight -- No --> GetStop{Is 'Stop' key present?}
+    
+    GetStop -- Yes --> StopCmd[Stop Motors]
+    GetStop -- No --> GetSpeed{Is 'Low/Medium/High' key present?}
+    
+    GetSpeed -- Yes --> SpeedCmd[Adjust Speed variable to 100, 200, or 255]
+    GetSpeed -- No --> GetBZ{Is 'BZ' key present?}
+    
+    GetBZ -- Yes --> BZCmd[If 'on': Turn Buzzer On<br>If 'off': Turn Buzzer Off]
+    GetBZ -- No --> GetRGB{Is 'RGB' key present?}
+    
+    GetRGB -- Yes --> RGBCmd[Parse R, G, B values<br>Set colors on NeoPixels]
+    GetRGB -- No --> FreeMsg
+    
+    ForwardCmd --> FreeMsg[Free aJsonObject msg from heap memory]
+    BackwardCmd --> FreeMsg
+    LeftCmd --> FreeMsg
+    RightCmd --> FreeMsg
+    StopCmd --> FreeMsg
+    SpeedCmd --> FreeMsg
+    BZCmd --> FreeMsg
+    RGBCmd --> FreeMsg
+    
+    FreeMsg --> LoopEnd
+```
+
+---
+
+## 🔍 How the Code Works
+
+1.  **JSON Stream Parsing**:
+    An instance of `aJsonStream` is connected directly to the hardware `Serial` interface:
+    ```cpp
+    aJsonStream serial_stream(&Serial);
+    ```
+    In `loop()`, the incoming stream is checked. `serial_stream.skip()` discards delimiters and whitespace. The `aJson.parse(&serial_stream)` command reads the raw JSON characters, parses them into a structured key-value tree (`aJsonObject`) in dynamic memory, and hands it to `ComExecution()`.
+2.  **Command Extraction**:
+    Inside `ComExecution()`, the code queries the parsed object tree for specific keys using:
+    ```cpp
+    aJsonObject *Forward = aJson.getObjectItem(msg, "Forward");
+    ```
+    If the key is found, the value string is compared to trigger actions. For instance, if the value is `"Down"`, the motors drive; if `"Up"`, they stop.
+3.  **Memory Management**:
+    Because JSON parsing dynamically allocates blocks of RAM on the heap (which only has 2KB total on the ATmega328P), it is critical that we free this memory as soon as execution completes:
+    ```cpp
+    aJson.deleteItem(msg);
+    ```
+4.  **Buzzer Control (PCF8574)**:
+    Since the buzzer is wired to Pin P5 of the PCF8574 I2C I/O expander, turning the buzzer on and off requires I2C writes:
+    *   `beep_on` writes to the expander while masking out bit 5 (making it `0`/LOW to trigger the buzzer's active-low circuit).
+    *   `beep_off` writes to the expander and sets bit 5 back to `1`/HIGH.
 
 ---
 
