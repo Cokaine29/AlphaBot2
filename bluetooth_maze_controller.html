@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlphaBot2 BLE Maze Controller</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #090717 0%, #130f28 50%, #04020a 100%);
+            --glass-bg: rgba(255, 255, 255, 0.025);
+            --glass-border: rgba(255, 255, 255, 0.07);
+            --glass-border-focus: rgba(255, 255, 255, 0.18);
+            --primary: #8a2be2;
+            --primary-glow: rgba(138, 43, 226, 0.4);
+            --success: #00e676;
+            --success-glow: rgba(0, 230, 118, 0.4);
+            --warning: #ff8c00;
+            --warning-glow: rgba(255, 140, 0, 0.4);
+            --danger: #ff1744;
+            --danger-glow: rgba(255, 23, 68, 0.4);
+            --text-main: #f3efff;
+            --text-muted: #948aa9;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 650px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-top: 10px;
+            margin-bottom: 5px;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            background: linear-gradient(90deg, #b388ff, #ea80fc, #82b1ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(234, 128, 252, 0.2);
+        }
+
+        p.subtitle {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin-top: 5px;
+        }
+
+        /* Card System */
+        .card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 24px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .conn-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: var(--danger);
+            box-shadow: 0 0 10px var(--danger);
+            animation: pulse-red 2s infinite;
+        }
+
+        .dot.connected {
+            background-color: var(--success);
+            box-shadow: 0 0 10px var(--success);
+            animation: pulse-green 2s infinite;
+        }
+
+        .dot.connecting {
+            background-color: #ffb300;
+            box-shadow: 0 0 10px #ffb300;
+            animation: pulse-orange 1s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(255, 23, 68, 0); }
+            100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 23, 68, 0); }
+        }
+
+        @keyframes pulse-green {
+            0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(0, 230, 118, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(0, 230, 118, 0); }
+            100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(0, 230, 118, 0); }
+        }
+
+        @keyframes pulse-orange {
+            0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 179, 0, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(255, 179, 0, 0); }
+            100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 179, 0, 0); }
+        }
+
+        /* Buttons */
+        .btn {
+            background: linear-gradient(135deg, #8a2be2 0%, #4a148c 100%);
+            border: none;
+            border-radius: 14px;
+            color: white;
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px var(--primary-glow);
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(138, 43, 226, 0.6);
+        }
+
+        .btn:active:not(:disabled) {
+            transform: translateY(1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .btn.disconnect {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            box-shadow: none;
+        }
+
+        .btn.disconnect:hover {
+            background: rgba(255, 23, 68, 0.1);
+            border-color: rgba(255, 23, 68, 0.4);
+            box-shadow: 0 4px 15px rgba(255, 23, 68, 0.2);
+        }
+
+        /* State Badge Panel */
+        .state-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.015);
+            border-radius: 16px;
+            padding: 15px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .state-badge {
+            font-size: 0.9rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            padding: 6px 14px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s;
+        }
+
+        .state-badge.stopped {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+        }
+
+        .state-badge.calibrated {
+            background: rgba(0, 230, 118, 0.05);
+            color: var(--success);
+            border-color: rgba(0, 230, 118, 0.2);
+        }
+
+        .state-badge.calibrating {
+            background: rgba(41, 121, 255, 0.1);
+            color: #448aff;
+            border-color: rgba(41, 121, 255, 0.25);
+            animation: flash-pulse 1s infinite alternate;
+        }
+
+        .state-badge.learning {
+            background: rgba(255, 140, 0, 0.1);
+            color: #ffd180;
+            border-color: rgba(255, 140, 0, 0.25);
+            animation: flash-pulse 0.8s infinite alternate;
+        }
+
+        .state-badge.solving {
+            background: rgba(0, 230, 118, 0.1);
+            color: #69f0ae;
+            border-color: rgba(0, 230, 118, 0.25);
+            box-shadow: 0 0 10px rgba(0, 230, 118, 0.15);
+            animation: flash-pulse 0.8s infinite alternate;
+        }
+
+        @keyframes flash-pulse {
+            from { opacity: 0.7; }
+            to { opacity: 1; transform: scale(1.03); }
+        }
+
+        /* Modes controls */
+        .mode-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .mode-row-triple {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+
+        .mode-btn {
+            padding: 14px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            outline: none;
+            background: rgba(255, 255, 255, 0.02);
+            text-align: center;
+        }
+
+        .mode-btn:hover:not(:disabled) {
+            border-color: var(--glass-border-focus);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .mode-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .mode-btn.calibrate {
+            background: rgba(41, 121, 255, 0.05);
+            border-color: rgba(41, 121, 255, 0.15);
+            color: #82b1ff;
+        }
+        .mode-btn.calibrate:hover:not(:disabled) {
+            background: rgba(41, 121, 255, 0.15);
+            border-color: rgba(41, 121, 255, 0.4);
+            box-shadow: 0 4px 15px rgba(41, 121, 255, 0.2);
+        }
+
+        .mode-btn.learn {
+            background: rgba(255, 140, 0, 0.05);
+            border-color: rgba(255, 140, 0, 0.15);
+            color: #ffd180;
+        }
+        .mode-btn.learn:hover:not(:disabled) {
+            background: rgba(255, 140, 0, 0.15);
+            border-color: rgba(255, 140, 0, 0.4);
+            box-shadow: 0 4px 15px rgba(255, 140, 0, 0.2);
+        }
+
+        .mode-btn.solve {
+            background: rgba(0, 230, 118, 0.05);
+            border-color: rgba(0, 230, 118, 0.15);
+            color: #69f0ae;
+        }
+        .mode-btn.solve:hover:not(:disabled) {
+            background: rgba(0, 230, 118, 0.15);
+            border-color: rgba(0, 230, 118, 0.4);
+            box-shadow: 0 4px 15px rgba(0, 230, 118, 0.2);
+        }
+
+        .mode-btn.stop-run {
+            background: rgba(255, 23, 68, 0.1);
+            border-color: rgba(255, 23, 68, 0.3);
+            color: #ff5252;
+            box-shadow: 0 0 15px rgba(255, 23, 68, 0.1);
+        }
+        .mode-btn.stop-run:hover:not(:disabled) {
+            background: rgba(255, 23, 68, 0.25);
+            border-color: rgba(255, 23, 68, 0.6);
+            box-shadow: 0 4px 20px rgba(255, 23, 68, 0.4);
+        }
+
+        /* Reflectance Sensors Grid Card */
+        .sensors-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            height: 120px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 18px;
+            padding: 15px 30px;
+            gap: 15px;
+        }
+
+        .sensor-channel {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+        }
+
+        .sensor-track-bg {
+            width: 16px;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .sensor-fill {
+            width: 100%;
+            height: 0%; 
+            background: linear-gradient(180deg, #b388ff, #8a2be2);
+            border-radius: 8px;
+            transition: height 0.1s ease-out, background-color 0.2s;
+            box-shadow: 0 0 10px rgba(138, 43, 226, 0.3);
+        }
+
+        .sensor-fill.active-junction {
+            background: linear-gradient(180deg, #ffd180, #ff8c00);
+            box-shadow: 0 0 15px rgba(255, 140, 0, 0.6);
+        }
+
+        .sensor-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Line Position Pointer */
+        .position-slider-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 0 5px;
+        }
+
+        .slider-track {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 4px;
+            position: relative;
+            width: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .slider-center-notch {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(-50%);
+        }
+
+        .slider-cursor {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ea80fc;
+            box-shadow: 0 0 10px #ea80fc, 0 0 20px rgba(234, 128, 252, 0.6);
+            position: absolute;
+            top: 50%;
+            left: 50%; 
+            transform: translate(-50%, -50%);
+            transition: left 0.1s ease-out;
+        }
+
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        /* Visual Path Tracker Board */
+        .path-visual-card {
+            gap: 15px;
+        }
+
+        .path-row {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .path-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+
+        .path-display {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            padding: 15px;
+            min-height: 58px;
+        }
+
+        .path-badge {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            border: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.02);
+            transition: all 0.25s ease;
+        }
+
+        .path-badge.left {
+            border-color: rgba(41, 121, 255, 0.25);
+            color: #82b1ff;
+            background: rgba(41, 121, 255, 0.03);
+        }
+
+        .path-badge.right {
+            border-color: rgba(0, 230, 118, 0.25);
+            color: #69f0ae;
+            background: rgba(0, 230, 118, 0.03);
+        }
+
+        .path-badge.straight {
+            border-color: rgba(234, 128, 252, 0.25);
+            color: #ea80fc;
+            background: rgba(234, 128, 252, 0.03);
+        }
+
+        .path-badge.uturn {
+            border-color: rgba(255, 23, 68, 0.25);
+            color: #ff5252;
+            background: rgba(255, 23, 68, 0.03);
+        }
+
+        .path-badge.highlight {
+            background: #ffd600;
+            color: #0b071a;
+            border-color: #ffd600;
+            box-shadow: 0 0 12px rgba(255, 214, 0, 0.6);
+            transform: scale(1.1);
+        }
+
+        .path-separator {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
+        /* D-Pad and overrides overrides */
+        .control-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 500px) {
+            .control-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .dpad-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 0;
+        }
+
+        .dpad {
+            display: grid;
+            grid-template-columns: 65px 65px 65px;
+            grid-template-rows: 65px 65px 65px;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.015);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 50%;
+            padding: 10px;
+        }
+
+        .dpad-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            outline: none;
+        }
+
+        .dpad-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.09);
+        }
+
+        .dpad-btn:active:not(:disabled), .dpad-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--primary-glow);
+            transform: scale(0.95);
+        }
+
+        .dpad-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .dpad-btn.up { grid-column: 2; grid-row: 1; }
+        .dpad-btn.left { grid-column: 1; grid-row: 2; }
+        .dpad-btn.stop { 
+            grid-column: 2; 
+            grid-row: 2; 
+            background: rgba(255, 23, 68, 0.1); 
+            border-color: rgba(255, 23, 68, 0.2);
+        }
+        .dpad-btn.stop:active:not(:disabled) {
+            background: var(--danger);
+            border-color: var(--danger);
+        }
+        .dpad-btn.right { grid-column: 3; grid-row: 2; }
+        .dpad-btn.down { grid-column: 2; grid-row: 3; }
+
+        .horn-btn {
+            background: rgba(255, 179, 0, 0.08);
+            border: 1px solid rgba(255, 179, 0, 0.2);
+            border-radius: 14px;
+            color: #ffb300;
+            padding: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+            outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .horn-btn:active:not(:disabled), .horn-btn.active {
+            background: #ffb300;
+            color: #110e20;
+            box-shadow: 0 0 20px rgba(255, 179, 0, 0.4);
+        }
+        .horn-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* Speed Tabs */
+        .speed-tabs {
+            display: flex;
+            gap: 8px;
+            margin-top: 5px;
+        }
+
+        .speed-tab {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            color: var(--text-muted);
+            padding: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            outline: none;
+        }
+
+        .speed-tab:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .speed-tab:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .speed-tab.active {
+            background: linear-gradient(135deg, #00d2ff 0%, #0066ff 100%);
+            color: white;
+            border-color: #00d2ff;
+            box-shadow: 0 4px 15px rgba(0, 210, 255, 0.3);
+        }
+
+        /* Console log */
+        .console-card {
+            font-family: 'JetBrains Mono', monospace;
+            gap: 10px;
+            padding: 18px 24px;
+        }
+
+        .console-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .console-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .console-terminal {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            height: 120px;
+            padding: 12px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            scroll-behavior: smooth;
+        }
+
+        .console-line {
+            line-height: 1.3;
+            color: var(--text-muted);
+            word-break: break-all;
+        }
+
+        .console-line.tx { color: #00e5ff; }
+        .console-line.rx { color: #00e676; }
+        .console-line.info { color: #d1c4e9; }
+        .console-line.error { color: var(--danger); }
+
+        .clear-console-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.8rem;
+            text-decoration: underline;
+            outline: none;
+        }
+
+        .clear-console-btn:hover { color: var(--text-main); }
+
+        /* Keyboard tips card */
+        .tips-card {
+            border-radius: 18px;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        span.kbd {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 0.75rem;
+            font-family: inherit;
+            color: var(--text-main);
+            box-shadow: 0 2px 0 rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>ALPHABOT2</h1>
+        <p class="subtitle">BLE Maze Solver Control Board</p>
+    </header>
+
+    <!-- Connection Card -->
+    <div class="card">
+        <div class="conn-bar">
+            <div class="status-indicator">
+                <div class="dot" id="connDot"></div>
+                <span id="connStatusText">Disconnected</span>
+            </div>
+            <button class="btn" id="connectBtn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                Connect Bot
+            </button>
+        </div>
+    </div>
+
+    <!-- Telemetry State & Autonomous Controls -->
+    <div class="card">
+        <div class="state-panel">
+            <div>
+                <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; font-weight: 600;">System Mode</div>
+                <div style="font-size: 1.1rem; font-weight: 800; margin-top: 3px;" id="stateText">Offline</div>
+            </div>
+            <span class="state-badge stopped" id="stateBadge">Disconnected</span>
+        </div>
+
+        <div class="mode-row">
+            <button class="mode-btn calibrate" id="btnCalibrate" disabled>Calibrate Sensors</button>
+            <button class="mode-btn learn" id="btnLearn" disabled>Learn Maze Path</button>
+        </div>
+
+        <div class="mode-row-triple">
+            <button class="mode-btn solve" id="btnSolve" disabled>Run Shortest Path</button>
+            <button class="mode-btn" id="btnClearPath" disabled>Clear Path</button>
+            <button class="mode-btn stop-run" id="btnStopRun" disabled>Stop Run</button>
+        </div>
+    </div>
+
+    <!-- Reflectance Sensors Array Plot -->
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="console-title">Live Sensor Array (Reflectance)</div>
+            <div style="font-size: 0.75rem; font-family:'JetBrains Mono', monospace; color:var(--text-muted);" id="rawSensorsText">S: [-, -, -, -, -]</div>
+        </div>
+        
+        <div class="sensors-container">
+            <div class="sensor-channel">
+                <div class="sensor-track-bg">
+                    <div class="sensor-fill" id="fillS0"></div>
+                </div>
+                <div class="sensor-label">S0</div>
+            </div>
+            <div class="sensor-channel">
+                <div class="sensor-track-bg">
+                    <div class="sensor-fill" id="fillS1"></div>
+                </div>
+                <div class="sensor-label">S1</div>
+            </div>
+            <div class="sensor-channel">
+                <div class="sensor-track-bg">
+                    <div class="sensor-fill" id="fillS2"></div>
+                </div>
+                <div class="sensor-label">S2</div>
+            </div>
+            <div class="sensor-channel">
+                <div class="sensor-track-bg">
+                    <div class="sensor-fill" id="fillS3"></div>
+                </div>
+                <div class="sensor-label">S3</div>
+            </div>
+            <div class="sensor-channel">
+                <div class="sensor-track-bg">
+                    <div class="sensor-fill" id="fillS4"></div>
+                </div>
+                <div class="sensor-label">S4</div>
+            </div>
+        </div>
+
+        <!-- Position pointer -->
+        <div class="position-slider-container">
+            <div style="display:flex; justify-content:space-between; font-size: 0.75rem; color:var(--text-muted); font-weight: 600;">
+                <span>Line Alignment Position</span>
+                <span id="posValueText">Pos: -</span>
+            </div>
+            <div class="slider-track">
+                <div class="slider-center-notch"></div>
+                <div class="slider-cursor" id="sliderCursor"></div>
+            </div>
+            <div class="slider-labels">
+                <span>◀ Left Edge</span>
+                <span>Center Line</span>
+                <span>Right Edge ▶</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Visual Path Tracker Board -->
+    <div class="card path-visual-card">
+        <div class="console-title">Maze Path Solving Tracker</div>
+        
+        <div class="path-row">
+            <div class="path-title">Exploration History (Raw Path)</div>
+            <div class="path-display" id="rawPathDisplay">
+                <span style="color:var(--text-muted); font-style:italic; font-size:0.9rem;">No data received yet</span>
+            </div>
+        </div>
+
+        <div class="path-row">
+            <div class="path-title">Solved Shortest Path</div>
+            <div class="path-display" id="solvedPathDisplay">
+                <span style="color:var(--text-muted); font-style:italic; font-size:0.9rem;">No path solved yet</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual Control Overrides Panel -->
+    <div class="control-layout" id="manualControlsPanel">
+        <!-- Manual Steering Card -->
+        <div class="card">
+            <div class="console-title">Manual Steering Overrides</div>
+            <div class="dpad-section">
+                <div class="dpad">
+                    <button class="dpad-btn up" id="btnForward" title="W / ↑" disabled>▲</button>
+                    <button class="dpad-btn left" id="btnLeft" title="A / ◀" disabled>◀</button>
+                    <button class="dpad-btn stop" id="btnStop" title="Space" disabled>■</button>
+                    <button class="dpad-btn right" id="btnRight" title="D / ▶" disabled>▶</button>
+                    <button class="dpad-btn down" id="btnBackward" title="S / ↓" disabled>▼</button>
+                </div>
+            </div>
+            <button class="horn-btn" id="btnHorn" title="H" disabled>📢 HORN BUZZER</button>
+        </div>
+
+        <!-- Speed and Info -->
+        <div class="card" style="justify-content: space-between;">
+            <div>
+                <div class="console-title">Manual Drive Speed</div>
+                <div class="speed-tabs">
+                    <button class="speed-tab" id="speedLow" disabled>LOW</button>
+                    <button class="speed-tab active" id="speedMedium" disabled>MED</button>
+                    <button class="speed-tab" id="speedHigh" disabled>HIGH</button>
+                </div>
+            </div>
+            <div class="tips-card" style="background: rgba(255,255,255,0.01); border:1px solid rgba(255,255,255,0.03); margin-bottom: 5px;">
+                <div style="line-height: 1.45;">
+                    💡 Manual overrides are active only in **Stopped** or **Calibrated** modes.
+                    Use keys <span class="kbd">W</span> <span class="kbd">A</span> <span class="kbd">S</span> <span class="kbd">D</span> to steer.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logger Console -->
+    <div class="card console-card">
+        <div class="console-header">
+            <div class="console-title">Telemetry Outbox & Logs</div>
+            <button class="clear-console-btn" id="btnClearLog">Clear</button>
+        </div>
+        <div class="console-terminal" id="terminalLog">
+            <div class="console-line info">Ready. Connect your robot via Bluetooth to start monitoring...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const HM10_SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
+    const HM10_CHAR_UUID    = '0000ffe1-0000-1000-8000-00805f9b34fb';
+    
+    const NORDIC_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+    const NORDIC_RX_CHAR_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+    const NORDIC_TX_CHAR_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
+
+    let bleDevice = null;
+    let txCharacteristic = null;
+    let rxCharacteristic = null;
+    let isConnected = false;
+
+    // Manual controls key states
+    const activeStates = {
+        Forward: false,
+        Backward: false,
+        Left: false,
+        Right: false,
+        Horn: false
+    };
+
+    let robotState = 'Stopped';
+    let savedShortPath = '';
+    let savedRawPath = '';
+
+    // DOM Elements
+    const connectBtn = document.getElementById('connectBtn');
+    const connDot = document.getElementById('connDot');
+    const connStatusText = document.getElementById('connStatusText');
+    const terminalLog = document.getElementById('terminalLog');
+    const btnClearLog = document.getElementById('btnClearLog');
+    
+    const stateText = document.getElementById('stateText');
+    const stateBadge = document.getElementById('stateBadge');
+
+    const btnCalibrate = document.getElementById('btnCalibrate');
+    const btnLearn = document.getElementById('btnLearn');
+    const btnSolve = document.getElementById('btnSolve');
+    const btnClearPath = document.getElementById('btnClearPath');
+    const btnStopRun = document.getElementById('btnStopRun');
+
+    const fillS0 = document.getElementById('fillS0');
+    const fillS1 = document.getElementById('fillS1');
+    const fillS2 = document.getElementById('fillS2');
+    const fillS3 = document.getElementById('fillS3');
+    const fillS4 = document.getElementById('fillS4');
+    const rawSensorsText = document.getElementById('rawSensorsText');
+    const sliderCursor = document.getElementById('sliderCursor');
+    const posValueText = document.getElementById('posValueText');
+
+    const rawPathDisplay = document.getElementById('rawPathDisplay');
+    const solvedPathDisplay = document.getElementById('solvedPathDisplay');
+
+    const btnForward = document.getElementById('btnForward');
+    const btnBackward = document.getElementById('btnBackward');
+    const btnLeft = document.getElementById('btnLeft');
+    const btnRight = document.getElementById('btnRight');
+    const btnStop = document.getElementById('btnStop');
+    const btnHorn = document.getElementById('btnHorn');
+    
+    const speedLow = document.getElementById('speedLow');
+    const speedMedium = document.getElementById('speedMedium');
+    const speedHigh = document.getElementById('speedHigh');
+
+    function logToTerminal(message, type = 'info') {
+        const line = document.createElement('div');
+        line.className = `console-line ${type}`;
+        const timestamp = new Date().toLocaleTimeString();
+        line.textContent = `[${timestamp}] ${message}`;
+        terminalLog.appendChild(line);
+        terminalLog.scrollTop = terminalLog.scrollHeight;
+    }
+
+    connectBtn.addEventListener('click', async () => {
+        if (isConnected) {
+            disconnectBLE();
+            return;
+        }
+
+        logToTerminal('Scanning for Bluetooth devices...', 'info');
+        connDot.className = 'dot connecting';
+        connStatusText.textContent = 'Connecting...';
+
+        try {
+            bleDevice = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: [HM10_SERVICE_UUID, NORDIC_SERVICE_UUID]
+            });
+
+            logToTerminal(`Selected device: ${bleDevice.name}. Connecting to GATT server...`, 'info');
+            bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+            const server = await bleDevice.gatt.connect();
+            logToTerminal('GATT link established. Checking services...', 'info');
+
+            // 1. Try HM-10 UART Service
+            try {
+                const service = await server.getPrimaryService(HM10_SERVICE_UUID);
+                txCharacteristic = await service.getCharacteristic(HM10_CHAR_UUID);
+                rxCharacteristic = txCharacteristic;
+                logToTerminal('Connected via HM-10 UART Service.', 'rx');
+                await startNotifications();
+                setConnectedUI();
+                return;
+            } catch (e) {
+                logToTerminal('HM-10 FFE0 service not found, checking Nordic UART...', 'info');
+            }
+
+            // 2. Try Nordic UART Service
+            try {
+                const service = await server.getPrimaryService(NORDIC_SERVICE_UUID);
+                txCharacteristic = await service.getCharacteristic(NORDIC_RX_CHAR_UUID);
+                rxCharacteristic = await service.getCharacteristic(NORDIC_TX_CHAR_UUID);
+                logToTerminal('Connected via Nordic UART Service.', 'rx');
+                await startNotifications();
+                setConnectedUI();
+                return;
+            } catch (e) {
+                logToTerminal('Nordic UART service not found.', 'error');
+            }
+
+            throw new Error('Device does not support standard HM-10 or Nordic UART service specifications.');
+        } catch (error) {
+            logToTerminal(`GATT Connection Error: ${error.message}`, 'error');
+            resetDisconnectUI();
+        }
+    });
+
+    async function startNotifications() {
+        if (!rxCharacteristic) return;
+        logToTerminal('Subscribing to telemetry notifications...', 'info');
+        await rxCharacteristic.startNotifications();
+        rxCharacteristic.addEventListener('characteristicvaluechanged', handleBLENotification);
+        logToTerminal('Subscribed to notifications.', 'rx');
+    }
+
+    let bleBuffer = '';
+    function handleBLENotification(event) {
+        const value = event.target.value;
+        const decoder = new TextDecoder();
+        const chunk = decoder.decode(value);
+        bleBuffer += chunk;
+
+        let newlineIndex;
+        while ((newlineIndex = bleBuffer.indexOf('\n')) !== -1) {
+            const line = bleBuffer.slice(0, newlineIndex).trim();
+            bleBuffer = bleBuffer.slice(newlineIndex + 1);
+            if (line) {
+                parseTelemetryJSON(line);
+            }
+        }
+    }
+
+    function parseTelemetryJSON(line) {
+        // Suppress printing repetitive raw telemetry logs to keep terminal clear
+        if (!line.includes('"Sensors"') && !line.includes('"Pos"')) {
+            logToTerminal(`RX: ${line}`, 'rx');
+        }
+
+        try {
+            const data = JSON.parse(line);
+            
+            if (data.Sensors && Array.isArray(data.Sensors)) {
+                updateSensorsPlot(data.Sensors, data.Pos);
+            }
+
+            if (data.State) {
+                updateModeState(data.State, data.Path, data.SimPath, data.Step);
+            }
+        } catch (err) {
+            // Drop damaged telemetry frames
+        }
+    }
+
+    function updateSensorsPlot(sensors, pos) {
+        rawSensorsText.textContent = `S: [${sensors.join(', ')}]`;
+        const fills = [fillS0, fillS1, fillS2, fillS3, fillS4];
+        
+        sensors.forEach((val, i) => {
+            const percentage = Math.min((val / 1000) * 100, 100);
+            fills[i].style.height = `${percentage}%`;
+            
+            if (val > 600) {
+                fills[i].classList.add('active-junction');
+            } else {
+                fills[i].classList.remove('active-junction');
+            }
+        });
+
+        if (pos !== undefined && pos >= 0) {
+            posValueText.textContent = `Pos: ${pos}`;
+            const percent = (pos / 4000) * 100;
+            sliderCursor.style.left = `${percent}%`;
+        }
+    }
+
+    function updateModeState(state, rawPathStr, simPathStr, activeStepIndex) {
+        robotState = state;
+        stateBadge.className = 'state-badge';
+        
+        // Render paths if provided in packet
+        if (rawPathStr !== undefined) {
+            savedRawPath = rawPathStr;
+            renderPathCapsules(rawPathStr, 'rawPathDisplay');
+        }
+        if (simPathStr !== undefined) {
+            savedShortPath = simPathStr;
+            renderPathCapsules(simPathStr, 'solvedPathDisplay', activeStepIndex !== undefined ? activeStepIndex : -1);
+        }
+
+        if (state === 'Stopped') {
+            stateText.textContent = 'Robot Stopped / Idle';
+            stateBadge.textContent = 'Stopped';
+            stateBadge.classList.add('stopped');
+            toggleAutonomousButtons(true);
+            toggleManualControls(true);
+            btnStopRun.disabled = true;
+        }
+        else if (state === 'Calibrated') {
+            stateText.textContent = 'Calibration Completed';
+            stateBadge.textContent = 'Calibrated';
+            stateBadge.classList.add('calibrated');
+            toggleAutonomousButtons(true);
+            toggleManualControls(true);
+            btnStopRun.disabled = true;
+        }
+        else if (state === 'Calibrating') {
+            stateText.textContent = 'Auto-Calibrating...';
+            stateBadge.textContent = 'Calibrating';
+            stateBadge.classList.add('calibrating');
+            toggleAutonomousButtons(false);
+            toggleManualControls(false);
+            btnStopRun.disabled = false;
+        }
+        else if (state === 'Learning') {
+            stateText.textContent = 'Exploring Maze (Learning Phase)';
+            stateBadge.textContent = 'Learning';
+            stateBadge.classList.add('learning');
+            toggleAutonomousButtons(false);
+            toggleManualControls(false);
+            btnStopRun.disabled = false;
+        }
+        else if (state === 'Solving') {
+            stateText.textContent = 'Solving Maze (Short-Path Traversing)';
+            stateBadge.textContent = 'Solving';
+            stateBadge.classList.add('solving');
+            toggleAutonomousButtons(false);
+            toggleManualControls(false);
+            btnStopRun.disabled = false;
+        }
+
+        // Enable Run Shortest Path button only if we have a solved shortest path and robot is stopped/calibrated
+        const hasPath = (savedShortPath && savedShortPath.length > 0);
+        if (state === 'Stopped' || state === 'Calibrated') {
+            btnSolve.disabled = !hasPath;
+            btnClearPath.disabled = !hasPath;
+        } else {
+            btnSolve.disabled = true;
+            btnClearPath.disabled = true;
+        }
+    }
+
+    function renderPathCapsules(pathStr, containerId, highlightIndex = -1) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+
+        if (!pathStr || pathStr.length === 0) {
+            container.innerHTML = `<span style="color:var(--text-muted); font-style:italic; font-size:0.9rem;">${containerId === 'rawPathDisplay' ? 'No turns explored' : 'No path solved yet'}</span>`;
+            return;
+        }
+
+        for (let i = 0; i < pathStr.length; i++) {
+            const char = pathStr[i];
+            const badge = document.createElement('div');
+            badge.className = 'path-badge';
+            if (i === highlightIndex) {
+                badge.classList.add('highlight');
+            }
+
+            let arrow = '';
+            let label = '';
+            switch (char) {
+                case 'L': arrow = '◀'; label = 'Left'; badge.classList.add('left'); break;
+                case 'R': arrow = '▶'; label = 'Right'; badge.classList.add('right'); break;
+                case 'S': arrow = '▲'; label = 'Straight'; badge.classList.add('straight'); break;
+                case 'B': arrow = '↻'; label = 'U-Turn'; badge.classList.add('uturn'); break;
+                default: arrow = char; label = char; break;
+            }
+
+            badge.innerHTML = `<span style="font-size: 1rem; margin-right: 4px;">${arrow}</span><span>${label}</span>`;
+            container.appendChild(badge);
+
+            if (i < pathStr.length - 1) {
+                const separator = document.createElement('span');
+                separator.className = 'path-separator';
+                separator.textContent = '➔';
+                container.appendChild(separator);
+            }
+        }
+    }
+
+    function toggleAutonomousButtons(enabled) {
+        btnCalibrate.disabled = !enabled;
+        btnLearn.disabled = !enabled;
+        // Solving and clear path have separate criteria based on path presence
+    }
+
+    function toggleManualControls(enabled) {
+        const controls = [btnForward, btnLeft, btnStop, btnRight, btnBackward, btnHorn, speedLow, speedMedium, speedHigh];
+        controls.forEach(c => c.disabled = !enabled);
+    }
+
+    function setConnectedUI() {
+        isConnected = true;
+        connDot.className = 'dot connected';
+        connStatusText.textContent = `Connected (${bleDevice.name})`;
+        connectBtn.textContent = 'Disconnect';
+        connectBtn.className = 'btn disconnect';
+        
+        btnCalibrate.disabled = false;
+        btnLearn.disabled = false;
+        toggleManualControls(true);
+        updateModeState('Stopped', '', '');
+    }
+
+    function resetDisconnectUI() {
+        isConnected = false;
+        txCharacteristic = null;
+        rxCharacteristic = null;
+        bleDevice = null;
+        
+        connDot.className = 'dot';
+        connStatusText.textContent = 'Disconnected';
+        connectBtn.textContent = 'Connect Bot';
+        connectBtn.className = 'btn';
+
+        btnCalibrate.disabled = true;
+        btnLearn.disabled = true;
+        btnSolve.disabled = true;
+        btnClearPath.disabled = true;
+        btnStopRun.disabled = true;
+        toggleManualControls(false);
+
+        stateText.textContent = 'Offline';
+        stateBadge.className = 'state-badge stopped';
+        stateBadge.textContent = 'Disconnected';
+
+        fillS0.style.height = '0%';
+        fillS1.style.height = '0%';
+        fillS2.style.height = '0%';
+        fillS3.style.height = '0%';
+        fillS4.style.height = '0%';
+        rawSensorsText.textContent = 'S: [-, -, -, -, -]';
+        sliderCursor.style.left = '50%';
+        posValueText.textContent = 'Pos: -';
+
+        rawPathDisplay.innerHTML = '<span style="color:var(--text-muted); font-style:italic; font-size:0.9rem;">No data received yet</span>';
+        solvedPathDisplay.innerHTML = '<span style="color:var(--text-muted); font-style:italic; font-size:0.9rem;">No path solved yet</span>';
+        
+        savedShortPath = '';
+        savedRawPath = '';
+    }
+
+    function disconnectBLE() {
+        if (bleDevice && bleDevice.gatt.connected) {
+            logToTerminal('Disconnecting Bluetooth...', 'info');
+            bleDevice.gatt.disconnect();
+        } else {
+            resetDisconnectUI();
+        }
+    }
+
+    function onDisconnected() {
+        logToTerminal('Bluetooth link severed.', 'error');
+        resetDisconnectUI();
+    }
+
+    // Command TX queue
+    let sendQueue = [];
+    let isSending = false;
+
+    async function processQueue() {
+        if (isSending || sendQueue.length === 0) return;
+        isSending = true;
+
+        while (sendQueue.length > 0) {
+            const { jsonObject, resolve, reject } = sendQueue[0];
+            const jsonStr = JSON.stringify(jsonObject);
+
+            if (!isConnected || !txCharacteristic) {
+                logToTerminal(`TX Blocked (Offline): ${jsonStr}`, 'error');
+                sendQueue.shift();
+                reject(new Error("Not connected"));
+                continue;
+            }
+
+            try {
+                const encoder = new TextEncoder();
+                const dataBuffer = encoder.encode(jsonStr + '\n');
+                
+                logToTerminal(`TX: ${jsonStr}`, 'tx');
+                await txCharacteristic.writeValue(dataBuffer);
+                sendQueue.shift();
+                resolve();
+            } catch (err) {
+                logToTerminal(`TX Fail: ${err.message}`, 'error');
+                if (err.message.includes("GATT operation already in progress")) {
+                    await new Promise(r => setTimeout(r, 50));
+                } else {
+                    sendQueue.shift();
+                    reject(err);
+                }
+            }
+        }
+        isSending = false;
+    }
+
+    function sendPacket(jsonObject) {
+        return new Promise((resolve, reject) => {
+            sendQueue.push({ jsonObject, resolve, reject });
+            processQueue();
+        });
+    }
+
+    // Modal / Button action triggers
+    btnCalibrate.addEventListener('click', () => sendPacket({ Calibrate: "Start" }));
+    btnLearn.addEventListener('click', () => sendPacket({ Maze: "Learn" }));
+    btnSolve.addEventListener('click', () => sendPacket({ Maze: "Solve" }));
+    btnStopRun.addEventListener('click', () => sendPacket({ Maze: "Stop" }));
+    btnClearPath.addEventListener('click', () => {
+        sendPacket({ Maze: "Clear" });
+        savedShortPath = '';
+        savedRawPath = '';
+        renderPathCapsules('', 'rawPathDisplay');
+        renderPathCapsules('', 'solvedPathDisplay');
+    });
+
+    // Momentary Manual override drivers
+    function handleStateChange(key, state) {
+        if (robotState === 'Learning' || robotState === 'Solving') return;
+        if (activeStates[key] === state) return;
+        activeStates[key] = state;
+        
+        const payload = {};
+        if (key === 'BZ') {
+            payload[key] = state ? 'on' : 'off';
+        } else {
+            payload[key] = state ? 'Down' : 'Up';
+        }
+        sendPacket(payload);
+    }
+
+    function setupMomentaryBtn(btnElement, stateKey, activeClass = 'active') {
+        const startTrigger = (e) => {
+            e.preventDefault();
+            btnElement.classList.add(activeClass);
+            handleStateChange(stateKey, true);
+        };
+        const endTrigger = (e) => {
+            e.preventDefault();
+            btnElement.classList.remove(activeClass);
+            handleStateChange(stateKey, false);
+        };
+
+        btnElement.addEventListener('mousedown', startTrigger);
+        btnElement.addEventListener('touchstart', startTrigger, {passive: false});
+        btnElement.addEventListener('mouseup', endTrigger);
+        btnElement.addEventListener('mouseleave', endTrigger);
+        btnElement.addEventListener('touchend', endTrigger, {passive: false});
+    }
+
+    setupMomentaryBtn(btnForward, 'Forward');
+    setupMomentaryBtn(btnBackward, 'Backward');
+    setupMomentaryBtn(btnLeft, 'Left');
+    setupMomentaryBtn(btnRight, 'Right');
+    setupMomentaryBtn(btnHorn, 'BZ');
+
+    btnStop.addEventListener('click', () => {
+        Object.keys(activeStates).forEach(k => activeStates[k] = false);
+        sendPacket({ Stop: "Down" });
+    });
+
+    // Speed Tabs selector
+    function setSpeedValue(valueStr, activeBtn) {
+        document.querySelectorAll('.speed-tab').forEach(b => b.classList.remove('active'));
+        activeBtn.classList.add('active');
+        const payload = {};
+        payload[valueStr] = 'Down';
+        sendPacket(payload);
+    }
+    speedLow.addEventListener('click', () => setSpeedValue('Low', speedLow));
+    speedMedium.addEventListener('click', () => setSpeedValue('Medium', speedMedium));
+    speedHigh.addEventListener('click', () => setSpeedValue('High', speedHigh));
+
+    // Clear log console
+    btnClearLog.addEventListener('click', () => {
+        terminalLog.innerHTML = '<div class="console-line info">Log buffer cleared.</div>';
+    });
+
+    // Keyboard bindings
+    const keyMap = {
+        'KeyW': { stateKey: 'Forward', element: btnForward },
+        'ArrowUp': { stateKey: 'Forward', element: btnForward },
+        'KeyS': { stateKey: 'Backward', element: btnBackward },
+        'ArrowDown': { stateKey: 'Backward', element: btnBackward },
+        'KeyA': { stateKey: 'Left', element: btnLeft },
+        'ArrowLeft': { stateKey: 'Left', element: btnLeft },
+        'KeyD': { stateKey: 'Right', element: btnRight },
+        'ArrowRight': { stateKey: 'Right', element: btnRight },
+        'KeyH': { stateKey: 'BZ', element: btnHorn },
+        'Space': { stateKey: 'BZ', element: btnHorn }
+    };
+
+    window.addEventListener('keydown', (e) => {
+        if (robotState === 'Learning' || robotState === 'Solving') return;
+        if (e.code === 'Digit1') { speedLow.click(); return; }
+        if (e.code === 'Digit2') { speedMedium.click(); return; }
+        if (e.code === 'Digit3') { speedHigh.click(); return; }
+
+        const mapping = keyMap[e.code];
+        if (mapping && isConnected) {
+            e.preventDefault();
+            mapping.element.classList.add('active');
+            handleStateChange(mapping.stateKey, true);
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (robotState === 'Learning' || robotState === 'Solving') return;
+        const mapping = keyMap[e.code];
+        if (mapping && isConnected) {
+            e.preventDefault();
+            mapping.element.classList.remove('active');
+            handleStateChange(mapping.stateKey, false);
+        }
+    });
+</script>
+</body>
+</html>
