@@ -27,9 +27,7 @@ Adafruit_NeoPixel RGB = Adafruit_NeoPixel(4, PIN, NEO_GRB + NEO_KHZ800);
 #define LEFT_SPEED_OFFSET 0
 #define RIGHT_SPEED_OFFSET 0
 
-unsigned int sensorValues[NUM_SENSORS];
-unsigned int last_proportional = 0;
-unsigned int position;
+int last_proportional = 0;
 long integral = 0;
 byte value;
 unsigned long lastTelemetryTime = 0;
@@ -41,6 +39,10 @@ int Speed = 150;        // Speed for manual D-pad controls
 bool isTracking = false;
 bool isCalibrated = false;
 
+// Fixed-size buffer to prevent heap fragmentation
+char cmdBuffer[48];
+byte cmdIndex = 0;
+
 void PCF8574Write(byte data);
 byte PCF8574Read();
 void forward();
@@ -50,7 +52,8 @@ void left();
 void stop();
 void runCalibration();
 void handleJunction();
-void parseAndExecuteCommand(String command);
+void parseAndExecuteCommand(char* command);
+void checkSerial();
 uint32_t Wheel(byte WheelPos);
 
 void setup() {
@@ -68,9 +71,9 @@ void setup() {
   display.setTextSize(2);
   display.setTextColor(WHITE);
   display.setCursor(10, 10);
-  display.println("AlphaBot2");
+  display.println(F("AlphaBot2"));
   display.setCursor(10, 35);
-  display.println("BLE-Node");
+  display.println(F("BLE-Node"));
   display.display();
   
   RGB.begin();
@@ -95,22 +98,19 @@ void setup() {
   display.clearDisplay();
   display.setTextSize(1);
   display.setCursor(0, 10);
-  display.println("Ready. Awaiting BLE");
+  display.println(F("Ready. Awaiting BLE"));
   display.setCursor(0, 25);
-  display.println("or Joystick Center");
+  display.println(F("or Joystick Center"));
   display.setCursor(0, 40);
-  display.println("to start calibration.");
+  display.println(F("to start calibration."));
   display.display();
 
-  Serial.println("{\"State\":\"Stopped\"}");
+  Serial.println(F("{\"State\":\"Stopped\"}"));
 }
 
 void loop() {
-  // 1. Read commands from BLE Serial (delimited by newlines)
-  if (Serial.available() > 0) {
-    String cmd = Serial.readStringUntil('\n');
-    parseAndExecuteCommand(cmd);
-  }
+  // 1. Read commands from BLE Serial (non-blocking char array parser)
+  checkSerial();
 
   // 2. Read physical Joystick inputs
   PCF8574Write(0x1F | PCF8574Read());
@@ -124,11 +124,11 @@ void loop() {
     } else {
       isTracking = !isTracking;
       if (isTracking) {
-        Serial.println("{\"State\":\"Tracking\"}");
+        Serial.println(F("{\"State\":\"Tracking\"}"));
         display.clearDisplay();
         display.setTextSize(2);
         display.setCursor(20, 20);
-        display.println("TRACKING");
+        display.println(F("TRACKING"));
         display.display();
         
         // Reset direction pins
@@ -138,11 +138,11 @@ void loop() {
         digitalWrite(BIN2, HIGH);
       } else {
         stop();
-        Serial.println("{\"State\":\"Stopped\"}");
+        Serial.println(F("{\"State\":\"Stopped\"}"));
         display.clearDisplay();
         display.setTextSize(2);
         display.setCursor(20, 20);
-        display.println("STOPPED");
+        display.println(F("STOPPED"));
         display.display();
       }
     }
@@ -156,7 +156,8 @@ void loop() {
 
   // 3. Autonomous Line Tracking Action
   if (isTracking) {
-    position = trs.readLine(sensorValues);
+    unsigned int sensorValues[NUM_SENSORS];
+    unsigned int position = trs.readLine(sensorValues);
     
     unsigned int calValues[NUM_SENSORS];
     trs.readCalibrated(calValues);
@@ -164,15 +165,15 @@ void loop() {
     // Send live telemetry to BLE interface every 250ms
     if (millis() - lastTelemetryTime > 250) {
       lastTelemetryTime = millis();
-      Serial.print("{\"Sensors\":[");
+      Serial.print(F("{\"Sensors\":["));
       Serial.print(calValues[0]); Serial.print(",");
       Serial.print(calValues[1]); Serial.print(",");
       Serial.print(calValues[2]); Serial.print(",");
       Serial.print(calValues[3]); Serial.print(",");
       Serial.print(calValues[4]);
-      Serial.print("],\"Pos\":");
+      Serial.print(F("],\"Pos\":"));
       Serial.print(position);
-      Serial.print(",\"State\":\"Tracking\"}\n");
+      Serial.print(F(",\"State\":\"Tracking\"}\n"));
     }
 
     // Check if we hit a road junction / node:
@@ -232,13 +233,13 @@ void loop() {
 
 // Runs sensor auto-rotation calibration
 void runCalibration() {
-  Serial.println("{\"State\":\"Calibrating\"}");
+  Serial.println(F("{\"State\":\"Calibrating\"}"));
   
   display.clearDisplay();
   display.setTextSize(1);
   display.setCursor(0, 10);
-  display.println("Calibrating...");
-  display.println("Auto-rotating...");
+  display.println(F("Calibrating..."));
+  display.println(F("Auto-rotating..."));
   display.display();
   
   // NeoPixels turn solid blue during calibration
@@ -268,14 +269,14 @@ void runCalibration() {
   stop();
 
   isCalibrated = true;
-  Serial.println("{\"State\":\"Calibrated\"}");
+  Serial.println(F("{\"State\":\"Calibrated\"}"));
 
   // Diagnostic calibration alignment checker
   display.clearDisplay();
   display.setCursor(0, 10);
-  display.println("Calibration Done!");
+  display.println(F("Calibration Done!"));
   display.setCursor(0, 25);
-  display.println("Ready to Track!");
+  display.println(F("Ready to Track!"));
   display.display();
   delay(1000);
 }
@@ -296,15 +297,17 @@ void handleJunction() {
   display.clearDisplay();
   display.setTextSize(1);
   display.setCursor(0, 0);
-  display.println("JUNCTION DETECTED");
-  display.println("-----------------");
-  display.println("Waiting for BLE...");
+  display.println(F("JUNCTION DETECTED"));
+  display.println(F("-----------------"));
+  display.println(F("Waiting for BLE..."));
   display.display();
 
   // Send junction detected state to BLE
-  Serial.println("{\"State\":\"Junction\"}");
+  Serial.println(F("{\"State\":\"Junction\"}"));
 
-  String choice = "";
+  // Clear any existing partial buffer
+  cmdIndex = 0;
+  char choice[10] = "";
   byte joystickKey = 0xFF;
 
   // Block and poll until direction is chosen via BLE OR Joystick
@@ -313,18 +316,31 @@ void handleJunction() {
     PCF8574Write(0x1F | PCF8574Read());
     joystickKey = PCF8574Read() | 0xE0;
     
-    if (joystickKey == 0xFE) { choice = "Straight"; break; }
-    if (joystickKey == 0xFB) { choice = "Left"; break; }
-    if (joystickKey == 0xFD) { choice = "Right"; break; }
+    if (joystickKey == 0xFE) { strcpy(choice, "Straight"); break; }
+    if (joystickKey == 0xFB) { strcpy(choice, "Left"); break; }
+    if (joystickKey == 0xFD) { strcpy(choice, "Right"); break; }
 
-    // 2. Check BLE serial stream for steering choice
-    if (Serial.available() > 0) {
-      String cmd = Serial.readStringUntil('\n');
-      cmd.trim();
-      if (cmd.indexOf("\"Go\":\"Straight\"") != -1) { choice = "Straight"; break; }
-      if (cmd.indexOf("\"Go\":\"Left\"") != -1) { choice = "Left"; break; }
-      if (cmd.indexOf("\"Go\":\"Right\"") != -1) { choice = "Right"; break; }
+    // 2. Check BLE serial stream (non-blocking char array parser)
+    while (Serial.available() > 0) {
+      char c = Serial.read();
+      if (c == '\n' || c == '\r') {
+        if (cmdIndex > 0) {
+          cmdBuffer[cmdIndex] = '\0';
+          if (strstr(cmdBuffer, "\"Go\":\"Straight\"") != NULL) { strcpy(choice, "Straight"); }
+          else if (strstr(cmdBuffer, "\"Go\":\"Left\"") != NULL) { strcpy(choice, "Left"); }
+          else if (strstr(cmdBuffer, "\"Go\":\"Right\"") != NULL) { strcpy(choice, "Right"); }
+          cmdIndex = 0;
+          if (choice[0] != '\0') break;
+        }
+      } else {
+        if (cmdIndex < 47) {
+          cmdBuffer[cmdIndex++] = c;
+        } else {
+          cmdIndex = 0;
+        }
+      }
     }
+    if (choice[0] != '\0') break;
     delay(10);
   }
 
@@ -343,15 +359,15 @@ void handleJunction() {
 
   unsigned int calValues[NUM_SENSORS];
 
-  if (choice == "Straight") {
-    display.println("STRAIGHT");
+  if (strcmp(choice, "Straight") == 0) {
+    display.println(F("STRAIGHT"));
     display.display();
     
     forward();
     delay(250); // Drive straight to clear junction line
   } 
-  else if (choice == "Left") {
-    display.println("TURN LEFT");
+  else if (strcmp(choice, "Left") == 0) {
+    display.println(F("TURN LEFT"));
     display.display();
     
     left();
@@ -367,8 +383,8 @@ void handleJunction() {
     stop();
     delay(100);
   } 
-  else if (choice == "Right") {
-    display.println("TURN RIGHT");
+  else if (strcmp(choice, "Right") == 0) {
+    display.println(F("TURN RIGHT"));
     display.display();
     
     right();
@@ -386,27 +402,44 @@ void handleJunction() {
   }
 }
 
-// Executes incoming commands from BLE
-void parseAndExecuteCommand(String command) {
-  command.trim();
-  if (command.length() == 0) return;
+// Non-blocking serial accumulator
+void checkSerial() {
+  while (Serial.available() > 0) {
+    char c = Serial.read();
+    if (c == '\n' || c == '\r') {
+      if (cmdIndex > 0) {
+        cmdBuffer[cmdIndex] = '\0';
+        parseAndExecuteCommand(cmdBuffer);
+        cmdIndex = 0;
+      }
+    } else {
+      if (cmdIndex < 47) {
+        cmdBuffer[cmdIndex++] = c;
+      } else {
+        cmdIndex = 0;
+      }
+    }
+  }
+}
 
+// Executes incoming commands from BLE
+void parseAndExecuteCommand(char* command) {
   // 1. Calibration trigger
-  if (command.indexOf("\"Calibrate\":\"Start\"") != -1) {
+  if (strstr(command, "\"Calibrate\":\"Start\"") != NULL) {
     runCalibration();
   }
 
   // 2. Line tracking state controls
-  else if (command.indexOf("\"LineTracking\":\"Start\"") != -1) {
+  else if (strstr(command, "\"LineTracking\":\"Start\"") != NULL) {
     if (!isCalibrated) {
       runCalibration();
     }
     isTracking = true;
-    Serial.println("{\"State\":\"Tracking\"}");
+    Serial.println(F("{\"State\":\"Tracking\"}"));
     display.clearDisplay();
     display.setTextSize(2);
     display.setCursor(20, 20);
-    display.println("TRACKING");
+    display.println(F("TRACKING"));
     display.display();
     
     // Reset PID direction pins
@@ -414,54 +447,57 @@ void parseAndExecuteCommand(String command) {
     digitalWrite(AIN2, HIGH);
     digitalWrite(BIN1, LOW);
     digitalWrite(BIN2, HIGH);
-  } else if (command.indexOf("\"LineTracking\":\"Stop\"") != -1) {
+  } else if (strstr(command, "\"LineTracking\":\"Stop\"") != NULL) {
     isTracking = false;
     stop();
-    Serial.println("{\"State\":\"Stopped\"}");
+    Serial.println(F("{\"State\":\"Stopped\"}"));
     display.clearDisplay();
     display.setTextSize(2);
     display.setCursor(20, 20);
-    display.println("STOPPED");
+    display.println(F("STOPPED"));
     display.display();
   }
 
   // 3. Manual override controls (Only allowed when not line-tracking)
   else if (!isTracking) {
-    if (command.indexOf("\"Forward\":\"Down\"") != -1) { forward(); }
-    else if (command.indexOf("\"Forward\":\"Up\"") != -1) { stop(); }
-    else if (command.indexOf("\"Backward\":\"Down\"") != -1) { backward(); }
-    else if (command.indexOf("\"Backward\":\"Up\"") != -1) { stop(); }
-    else if (command.indexOf("\"Left\":\"Down\"") != -1) { left(); }
-    else if (command.indexOf("\"Left\":\"Up\"") != -1) { stop(); }
-    else if (command.indexOf("\"Right\":\"Down\"") != -1) { right(); }
-    else if (command.indexOf("\"Right\":\"Up\"") != -1) { stop(); }
-    else if (command.indexOf("\"Stop\":\"Down\"") != -1) { stop(); }
+    if (strstr(command, "\"Forward\":\"Down\"") != NULL) { forward(); }
+    else if (strstr(command, "\"Forward\":\"Up\"") != NULL) { stop(); }
+    else if (strstr(command, "\"Backward\":\"Down\"") != NULL) { backward(); }
+    else if (strstr(command, "\"Backward\":\"Up\"") != NULL) { stop(); }
+    else if (strstr(command, "\"Left\":\"Down\"") != NULL) { left(); }
+    else if (strstr(command, "\"Left\":\"Up\"") != NULL) { stop(); }
+    else if (strstr(command, "\"Right\":\"Down\"") != NULL) { right(); }
+    else if (strstr(command, "\"Right\":\"Up\"") != NULL) { stop(); }
+    else if (strstr(command, "\"Stop\":\"Down\"") != NULL) { stop(); }
   }
 
   // 4. Utility commands (Active in any mode)
-  if (command.indexOf("\"Low\":\"Down\"") != -1) { Speed = 100; }
-  else if (command.indexOf("\"Medium\":\"Down\"") != -1) { Speed = 150; }
-  else if (command.indexOf("\"High\":\"Down\"") != -1) { Speed = 200; }
+  if (strstr(command, "\"Low\":\"Down\"") != NULL) { Speed = 100; }
+  else if (strstr(command, "\"Medium\":\"Down\"") != NULL) { Speed = 150; }
+  else if (strstr(command, "\"High\":\"Down\"") != NULL) { Speed = 200; }
 
-  if (command.indexOf("\"BZ\":\"on\"") != -1) { beep_on; }
-  else if (command.indexOf("\"BZ\":\"off\"") != -1) { beep_off; }
+  if (strstr(command, "\"BZ\":\"on\"") != NULL) { beep_on; }
+  else if (strstr(command, "\"BZ\":\"off\"") != NULL) { beep_off; }
 
-  if (command.indexOf("\"RGB\":\"") != -1) {
-    int rgbIdx = command.indexOf("\"RGB\":\"");
-    int valStart = rgbIdx + 7;
-    int valEnd = command.indexOf("\"", valStart);
-    if (valEnd != -1) {
-      String rgbVals = command.substring(valStart, valEnd);
-      int comma1 = rgbVals.indexOf(',');
-      int comma2 = rgbVals.lastIndexOf(',');
-      if (comma1 != -1 && comma2 != -1) {
-        byte R = rgbVals.substring(0, comma1).toInt();
-        byte G = rgbVals.substring(comma1 + 1, comma2).toInt();
-        byte B = rgbVals.substring(comma2 + 1).toInt();
-        for (int i = 0; i < 4; i++) {
-          RGB.setPixelColor(i, RGB.Color(R, G, B));
+  if (strstr(command, "\"RGB\":\"") != NULL) {
+    char* rgbValStart = strstr(command, "\"RGB\":\"") + 7;
+    char* rgbValEnd = strchr(rgbValStart, '\"');
+    if (rgbValEnd != NULL) {
+      *rgbValEnd = '\0'; // Temporarily null-terminate inside command string
+      char* comma1 = strchr(rgbValStart, ',');
+      if (comma1 != NULL) {
+        *comma1 = '\0';
+        char* comma2 = strchr(comma1 + 1, ',');
+        if (comma2 != NULL) {
+          *comma2 = '\0';
+          byte R = atoi(rgbValStart);
+          byte G = atoi(comma1 + 1);
+          byte B = atoi(comma2 + 1);
+          for (int i = 0; i < 4; i++) {
+            RGB.setPixelColor(i, RGB.Color(R, G, B));
+          }
+          RGB.show();
         }
-        RGB.show();
       }
     }
   }
