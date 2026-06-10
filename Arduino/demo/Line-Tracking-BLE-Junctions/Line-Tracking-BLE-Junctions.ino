@@ -139,8 +139,11 @@ void loop() {
     }
 
     // Check if we hit a road junction / node:
-    // A node is hit if left sensor (S0) OR right sensor (S4) detects line (calibrated reading > 750)
-    if (calValues[0] > 750 || calValues[4] > 750) {
+    // A node is hit if an outer sensor (S0 or S4) detects the line (calibrated reading > 750)
+    // AND at least one of the inner sensors (S1, S2, or S3) also detects the line (calibrated reading > 600).
+    // This prevents false junction triggers when the robot simply drifts sideways during normal line following.
+    if ((calValues[0] > 750 || calValues[4] > 750) && 
+        (calValues[1] > 600 || calValues[2] > 600 || calValues[3] > 600)) {
       handleJunction();
       
       // Reset PID values after stopping/turning to prevent integral windup
