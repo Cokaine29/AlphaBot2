@@ -778,7 +778,11 @@
         activeStates[key] = state;
         
         const payload = {};
-        payload[key] = state ? 'Down' : 'Up';
+        if (key === 'BZ') {
+            payload[key] = state ? 'on' : 'off';
+        } else {
+            payload[key] = state ? 'Down' : 'Up';
+        }
         sendPacket(payload);
     }
 
