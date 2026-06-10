@@ -32,15 +32,21 @@ void left();
 void stop();
 
 void setup() {
-  // put your setup code here, to run once:
   Serial.begin(115200);
-  pinMode(IR,INPUT);
-  pinMode(PWMA,OUTPUT);                     
-  pinMode(AIN2,OUTPUT);      
-  pinMode(AIN1,OUTPUT);
-  pinMode(PWMB,OUTPUT);       
-  pinMode(AIN1,OUTPUT);     
-  pinMode(AIN2,OUTPUT);  
+  pinMode(IR, INPUT);
+  
+  // Configure speed control pins as outputs
+  pinMode(PWMA, OUTPUT);                     
+  pinMode(PWMB, OUTPUT);       
+
+  // Configure Left Motor direction pins as outputs
+  pinMode(AIN1, OUTPUT);
+  pinMode(AIN2, OUTPUT);      
+  
+  // Configure Right Motor direction pins as outputs (Fixed: previously duplicated AIN1/AIN2 instead of BIN1/BIN2)
+  pinMode(BIN1, OUTPUT);     
+  pinMode(BIN2, OUTPUT);  
+
   Serial.println("IR control example");
 }
 
@@ -102,7 +108,8 @@ char IR_decode(unsigned char * code)
 {
   char value = 0;
   unsigned int count = 0;
-  unsigned char i,index,cnt=0,data[4]={0,0,0,0};
+  // Fixed: index must be initialized to 0 to prevent stack corruption/undefined behavior
+  unsigned char i, index = 0, cnt = 0, data[4] = {0, 0, 0, 0};
   if(digitalRead(IR) == LOW)
   {
     count = 0;
