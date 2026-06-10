@@ -11,6 +11,10 @@
 String comdata = "";
 int Speed = 150;
 uint16_t i, j;
+
+// Speed offsets to calibrate wheel imbalance (Carried over -3 right wheel offset)
+#define LEFT_SPEED_OFFSET   0  
+#define RIGHT_SPEED_OFFSET -3  
 unsigned long lasttime = 0;
 byte flag = 1;
 Adafruit_NeoPixel RGB = Adafruit_NeoPixel(4, PIN, NEO_GRB + NEO_KHZ800);
@@ -23,16 +27,22 @@ void stop();
 uint32_t Wheel(byte WheelPos);
 
 void setup() {
-  // put your setup code here, to run once:
   Serial.begin(115200);
   RGB.begin();
   RGB.show(); // Initialize all pixels to 'off'
-  pinMode(PWMA,OUTPUT);                     
-  pinMode(AIN2,OUTPUT);      
-  pinMode(AIN1,OUTPUT);
-  pinMode(PWMB,OUTPUT);       
-  pinMode(AIN1,OUTPUT);     
-  pinMode(AIN2,OUTPUT);  
+  
+  // Configure speed control pins as outputs
+  pinMode(PWMA, OUTPUT);                     
+  pinMode(PWMB, OUTPUT);       
+
+  // Configure Left Motor direction pins as outputs
+  pinMode(AIN1, OUTPUT);
+  pinMode(AIN2, OUTPUT);      
+  
+  // Configure Right Motor direction pins as outputs (Fixed: previously duplicated AIN1/AIN2 instead of BIN1/BIN2)
+  pinMode(BIN1, OUTPUT);     
+  pinMode(BIN2, OUTPUT);  
+
   Serial.println("Bluetooth control example");
   stop();
 }
@@ -113,22 +123,22 @@ void loop() {
 
 void forward()
 {
-  analogWrite(PWMA,Speed);
-  analogWrite(PWMB,Speed);
-  digitalWrite(AIN1,LOW);
-  digitalWrite(AIN2,HIGH);
-  digitalWrite(BIN1,LOW);  
-  digitalWrite(BIN2,HIGH); 
+  analogWrite(PWMA, constrain(Speed + LEFT_SPEED_OFFSET, 0, 255));
+  analogWrite(PWMB, constrain(Speed + RIGHT_SPEED_OFFSET, 0, 255));
+  digitalWrite(AIN1, LOW);
+  digitalWrite(AIN2, HIGH);
+  digitalWrite(BIN1, LOW);  
+  digitalWrite(BIN2, HIGH); 
 }
 
 void backward()
 {
-  analogWrite(PWMA,Speed);
-  analogWrite(PWMB,Speed);
-  digitalWrite(AIN1,HIGH);
-  digitalWrite(AIN2,LOW);
-  digitalWrite(BIN1,HIGH); 
-  digitalWrite(BIN2,LOW);  
+  analogWrite(PWMA, constrain(Speed + LEFT_SPEED_OFFSET, 0, 255));
+  analogWrite(PWMB, constrain(Speed + RIGHT_SPEED_OFFSET, 0, 255));
+  digitalWrite(AIN1, HIGH);
+  digitalWrite(AIN2, LOW);
+  digitalWrite(BIN1, HIGH); 
+  digitalWrite(BIN2, LOW);  
 }
 
 void right()
