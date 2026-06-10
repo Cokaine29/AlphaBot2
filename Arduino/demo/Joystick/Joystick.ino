@@ -14,7 +14,7 @@
 
 #define OLED_RESET 9
 #define OLED_SA0   8
-Adafruit_SSD1306 display(OLED_RESET, OLED_SA0);
+Adafruit_SSD1306 display(128, 64, &Wire, OLED_RESET);
 
 #define beep_on  PCF8574Write(0xDF & PCF8574Read())
 #define beep_off PCF8574Write(0x20 | PCF8574Read())
@@ -37,6 +37,11 @@ void updateOLED(const char* text);
 void setup() {
   Serial.begin(115200);
   Serial.println("Joystick example!!");
+  
+  // Set I2C Address Pin (SA0) to LOW to select 0x3C address
+  pinMode(OLED_SA0, OUTPUT);
+  digitalWrite(OLED_SA0, LOW);
+  
   Wire.begin();
 
   // Initialize OLED Screen
