@@ -82,7 +82,9 @@ switch ($Action) {
         Write-Host "==================================================" -ForegroundColor Blue
         
         $libsPath = Join-Path $PSScriptRoot "Arduino/libraries"
-        arduino-cli compile --fqbn $config.fqbn --libraries $libsPath $SketchDir
+        $libNeoPixel = Join-Path $libsPath "Adafruit_NeoPixel"
+        $libTRSensors = Join-Path $libsPath "TRSensors"
+        arduino-cli compile --fqbn $config.fqbn --libraries $libsPath --library $libNeoPixel --library $libTRSensors $SketchDir
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host "`nCompilation Successful!" -ForegroundColor Green
@@ -122,8 +124,10 @@ switch ($Action) {
         
         # First Compile
         $libsPath = Join-Path $PSScriptRoot "Arduino/libraries"
+        $libNeoPixel = Join-Path $libsPath "Adafruit_NeoPixel"
+        $libTRSensors = Join-Path $libsPath "TRSensors"
         Write-Host "Re-verifying code..." -ForegroundColor Gray
-        arduino-cli compile --fqbn $config.fqbn --libraries $libsPath $SketchDir
+        arduino-cli compile --fqbn $config.fqbn --libraries $libsPath --library $libNeoPixel --library $libTRSensors $SketchDir
         if ($LASTEXITCODE -ne 0) {
             Write-Host "`nError: Compilation failed. Aborting upload." -ForegroundColor Red
             exit $LASTEXITCODE

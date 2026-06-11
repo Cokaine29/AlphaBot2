@@ -34,7 +34,7 @@ bool isCalibrated = false;
 
 unsigned int sensorValues[NUM_SENSORS];
 int Speed = 150;        // Speed for manual override driving
-const int trackingSpeed = 100; // Standard line-following speed limit
+const int trackingSpeed = 70; // Standard line-following speed limit
 
 // Path planning storage
 char raw_path[100] = "";
@@ -164,8 +164,57 @@ void learnMaze() {
 
   while (currentMode == MODE_LEARNING) {
     // 1. Follow line segment until a junction, dead end, or endpoint is hit
-    if (!follow_segment()) {
+    bool hitIntersection = follow_segment();
+    
+    // Check if we were stopped by command/button
+    if (currentMode == MODE_STOPPED) {
       break;
+    }
+
+    if (!hitIntersection) {
+      // Hit a dead end!
+      // Stop and back up slightly to put the sensors back over the line
+      SetSpeeds(0, 0);
+      delay(50);
+      SetSpeeds(-70, -70);
+      unsigned long start_delay = millis();
+      while (millis() - start_delay < 180) {
+        checkSerial();
+        if (currentMode == MODE_STOPPED) { SetSpeeds(0,0); return; }
+        delay(5);
+      }
+      SetSpeeds(0, 0);
+      delay(50);
+
+      // Turn around (U-turn)
+      if (!execute_turn('B')) {
+        break;
+      }
+
+      // Record U-turn in path
+      if (raw_path_length < 99) {
+        raw_path[raw_path_length] = 'B';
+        raw_path_length++;
+        raw_path[raw_path_length] = '\0';
+      }
+      if (path_length < 99) {
+        path[path_length] = 'B';
+        path_length++;
+        path[path_length] = '\0';
+        simplify_path();
+      }
+
+      sendStateTelemetry();
+      continue;
+    }
+
+    // Hit an intersection! Stop for a second.
+    SetSpeeds(0, 0);
+    unsigned long stop_delay = millis();
+    while (millis() - stop_delay < 1000) {
+      checkSerial();
+      if (currentMode == MODE_STOPPED) { SetSpeeds(0,0); return; }
+      delay(5);
     }
 
     // 2. Drive straight a bit to center the robot over the intersection line
@@ -366,7 +415,7 @@ bool follow_segment() {
     if (millis() - entry_time > 150) {
       // Dead End detection (All center sensors see white/reflective background)
       if (calValues[1] < 150 && calValues[2] < 150 && calValues[3] < 150) {
-        return true;
+        return false;
       }
       // Left/Right branch line detection
       if (calValues[0] > 600 || calValues[4] > 600) {
@@ -384,68 +433,68 @@ bool follow_segment() {
 // Lock-on Turn sequence using center line sensor (S2)
 bool execute_turn(unsigned char dir) {
   unsigned int calValues[NUM_SENSORS];
-  int turnSpeed = 95;
+  int turnSpeed = 100;
 
   switch(dir) {
     case 'L':
       SetSpeeds(-turnSpeed, turnSpeed);
-      // Blind turn for 200ms to spin off current line
+      // Blind turn to spin off current line
       {
         unsigned long start = millis();
-        while (millis() - start < 200) {
+        while (millis() - start < 150) {
           checkSerial();
           if (currentMode == MODE_STOPPED) { SetSpeeds(0,0); return false; }
           delay(5);
         }
       }
-      // Spin until S2 detects black line
+      // Spin until center sensors detect black line
       while (true) {
         checkSerial();
         if (currentMode == MODE_STOPPED) { SetSpeeds(0,0); return false; }
         trs.readCalibrated(calValues);
-        if (calValues[2] > 700) break;
+        if (calValues[2] > 500 || calValues[1] > 500 || calValues[3] > 500) break;
         delay(5);
       }
       break;
 
     case 'R':
       SetSpeeds(turnSpeed, -turnSpeed);
-      // Blind turn for 200ms
+      // Blind turn
       {
         unsigned long start = millis();
-        while (millis() - start < 200) {
+        while (millis() - start < 150) {
           checkSerial();
           if (currentMode == MODE_STOPPED) { SetSpeeds(0,0); return false; }
           delay(5);
         }
       }
-      // Spin until S2 detects line
+      // Spin until center sensors detect black line
       while (true) {
         checkSerial();
         if (currentMode == MODE_STOPPED) { SetSpeeds(0,0); return false; }
         trs.readCalibrated(calValues);
-        if (calValues[2] > 700) break;
+        if (calValues[2] > 500 || calValues[1] > 500 || calValues[3] > 500) break;
         delay(5);
       }
       break;
 
     case 'B':
       SetSpeeds(turnSpeed, -turnSpeed);
-      // Blind turn for 400ms to clear line backwards
+      // Blind turn to clear line backwards
       {
         unsigned long start = millis();
-        while (millis() - start < 400) {
+        while (millis() - start < 250) {
           checkSerial();
           if (currentMode == MODE_STOPPED) { SetSpeeds(0,0); return false; }
           delay(5);
         }
       }
-      // Spin until S2 detects line
+      // Spin until center sensors detect black line
       while (true) {
         checkSerial();
         if (currentMode == MODE_STOPPED) { SetSpeeds(0,0); return false; }
         trs.readCalibrated(calValues);
-        if (calValues[2] > 700) break;
+        if (calValues[2] > 500 || calValues[1] > 500 || calValues[3] > 500) break;
         delay(5);
       }
       break;
@@ -678,12 +727,11 @@ void runCalibration() {
   // Pivot left and right to sweep over black line
   for (int i = 0; i < 100; i++) {
     if (i < 25 || i >= 75) {
-      SetSpeeds(80, -80);
+      SetSpeeds(55, -55);
     } else {
-      SetSpeeds(-80, 80);
+      SetSpeeds(-55, 55);
     }
     trs.calibrate();
-    delay(20);
   }
   stop();
 
@@ -711,10 +759,6 @@ void sendLiveTelemetry(unsigned int* calValues, unsigned int position) {
   if (currentMode == MODE_LEARNING) Serial.print(F("Learning"));
   else if (currentMode == MODE_SOLVING) Serial.print(F("Solving"));
   else if (currentMode == MODE_STOPPED) Serial.print(isCalibrated ? F("Calibrated") : F("Stopped"));
-  Serial.print(F("\",\"Path\":\""));
-  Serial.print(raw_path);
-  Serial.print(F("\",\"SimPath\":\""));
-  Serial.print(path);
   Serial.println(F("\"}"));
 }
 
