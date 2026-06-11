@@ -69,3 +69,46 @@ All commands are sent as JSON strings terminated with a newline (`\n`) over the 
 2. Click **Calibrate Sensors** on the dashboard. The robot will rotate left and right over the line to calibrate.
 3. Place the robot at the start of your maze, and click **Start Maze Solver**. The robot will explore the maze using the Left-Hand-on-the-Wall strategy.
 4. Once the goal is reached, the robot stops. Place it back at the start, and click **Run Shortest Path** to watch it traverse the optimized route directly to the finish.
+
+---
+
+## 📊 Control Flowchart
+
+```mermaid
+graph TD
+    Start([Start Loop]) --> CheckBLE[Check Bluetooth & Button Inputs]
+    
+    %% Calibration wait
+    CheckBLE --> WaitCalib{Calibrated?}
+    WaitCalib -- No --> WaitCalibCmd[Wait for Calibrate Command or Button]
+    WaitCalibCmd --> RunCalib[Run Calibration: Sweep sensors left/right]
+    RunCalib --> MarkCalib[Turn LEDs Blue & Mark Calibrated]
+    MarkCalib --> CheckBLE
+    
+    %% Exploration wait
+    WaitCalib -- Yes --> WaitLearnCmd{Maze Started?}
+    WaitLearnCmd -- No --> WaitLearn[Wait for Learn Command or Button]
+    WaitLearn --> MarkLearn[Turn LEDs Green & Start Maze]
+    MarkLearn --> CheckBLE
+    
+    %% Exploration run
+    WaitLearnCmd -- Yes --> Exploration{Exploration Active?}
+    Exploration -- Yes --> FollowSeg[Follow Segment via PID]
+    FollowSeg --> CheckJunction{Dead end or Intersection?}
+    
+    CheckJunction -- Dead End --> DeadEnd[Backup & Turn 'B']
+    DeadEnd --> UpdatePath[Add turn to path & simplify]
+    UpdatePath --> FollowSeg
+    
+    CheckJunction -- Intersection --> CenterAlign[Drive straight & align wheels]
+    CenterAlign --> CheckEnd{Goal reached?<br>S1, S2, S3 all black}
+    
+    CheckEnd -- Yes --> GoalHalt[Double Beep & Stop Motors]
+    GoalHalt --> SolvedWait[Wait for Solve Command or Button]
+    SolvedWait --> SolveRun[Shortest Path Traversal directly to goal]
+    SolveRun --> GoalHalt
+    
+    CheckEnd -- No --> TurnChoice[Select turn via Left-Hand rule]
+    TurnChoice --> ExecuteTurn[Rotate to line]
+    ExecuteTurn --> UpdatePath
+```
