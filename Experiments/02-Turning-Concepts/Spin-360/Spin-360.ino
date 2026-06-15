@@ -1,6 +1,6 @@
 /*
    Experiment 02: Spin-360
-   
+
    This sketch drives the AlphaBot2 in a full 360-degree rotation.
    Students will calibrate the SPIN_DURATION_MS constant so that the
    robot does exactly one full spin and ends up facing the starting direction.
@@ -15,9 +15,10 @@
 #define BIN2 A3 // Right Motor Direction 2
 
 // --- CALIBRATION ---
-// TODO: Adjust this delay (in milliseconds) until the robot completes exactly one 360-degree rotation!
-const unsigned long SPIN_DURATION_MS = 1600; // Estimated baseline
-const int SPIN_SPEED = 100;                  // Fixed spinning speed
+// TODO: Adjust this delay (in milliseconds) until the robot completes exactly
+// one 360-degree rotation!
+const unsigned long SPIN_DURATION_MS = 800; // Estimated baseline
+const int SPIN_SPEED = 60;                  // Fixed spinning speed
 
 void setup() {
   pinMode(PWMA, OUTPUT);
@@ -34,13 +35,13 @@ void setup() {
 void loop() {
   // Spin clockwise
   pivotRight(SPIN_SPEED);
-  
+
   // Keep spinning for the calibrated duration
   delay(SPIN_DURATION_MS);
-  
+
   // Stop the motors
   stopMotors();
-  
+
   // Hold execution forever
   while (1) {
     delay(1000);
@@ -48,18 +49,18 @@ void loop() {
 }
 
 /**
- * Commands the H-Bridge to turn the left wheel forward and the right wheel backward.
- * This spins the robot clockwise around its center (Pivot Turn).
+ * Commands the H-Bridge to turn the left wheel forward and the right wheel
+ * backward. This spins the robot clockwise around its center (Pivot Turn).
  */
 void pivotRight(int speed) {
   // Left Motor Forward: AIN1 = LOW, AIN2 = HIGH
   digitalWrite(AIN1, LOW);
   digitalWrite(AIN2, HIGH);
-  
+
   // Right Motor Backward: BIN1 = HIGH, BIN2 = LOW
   digitalWrite(BIN1, HIGH);
   digitalWrite(BIN2, LOW);
-  
+
   // Apply speeds
   analogWrite(PWMA, speed);
   analogWrite(PWMB, speed);

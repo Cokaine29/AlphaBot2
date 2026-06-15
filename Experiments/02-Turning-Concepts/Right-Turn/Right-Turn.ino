@@ -1,6 +1,6 @@
 /*
    Experiment 02: Right-Turn
-   
+
    This sketch drives the AlphaBot2 in a Right Pivot Turn (on the spot).
    Students will calibrate the TURN_DURATION_MS constant so that the
    robot turns EXACTLY 90 degrees clockwise.
@@ -15,9 +15,10 @@
 #define BIN2 A3 // Right Motor Direction 2
 
 // --- CALIBRATION ---
-// TODO: Adjust this delay (in milliseconds) until the turn is exactly 90 degrees!
-const unsigned long TURN_DURATION_MS = 400; // Estimated baseline
-const int TURN_SPEED = 100;                 // Fixed turning speed
+// TODO: Adjust this delay (in milliseconds) until the turn is exactly 90
+// degrees!
+const unsigned long TURN_DURATION_MS = 200; // Estimated baseline
+const int TURN_SPEED = 60;                  // Fixed turning speed
 
 void setup() {
   pinMode(PWMA, OUTPUT);
@@ -34,13 +35,13 @@ void setup() {
 void loop() {
   // Execute pivot right turn
   pivotRight(TURN_SPEED);
-  
+
   // Keep turning for the calibrated duration
   delay(TURN_DURATION_MS);
-  
+
   // Stop the motors
   stopMotors();
-  
+
   // Hold execution forever
   while (1) {
     delay(1000);
@@ -48,18 +49,18 @@ void loop() {
 }
 
 /**
- * Commands the H-Bridge to turn the left wheel forward and the right wheel backward.
- * This spins the robot clockwise around its center (Pivot Turn).
+ * Commands the H-Bridge to turn the left wheel forward and the right wheel
+ * backward. This spins the robot clockwise around its center (Pivot Turn).
  */
 void pivotRight(int speed) {
   // Left Motor Forward: AIN1 = LOW, AIN2 = HIGH
   digitalWrite(AIN1, LOW);
   digitalWrite(AIN2, HIGH);
-  
+
   // Right Motor Backward: BIN1 = HIGH, BIN2 = LOW
   digitalWrite(BIN1, HIGH);
   digitalWrite(BIN2, LOW);
-  
+
   // Apply speeds
   analogWrite(PWMA, speed);
   analogWrite(PWMB, speed);
