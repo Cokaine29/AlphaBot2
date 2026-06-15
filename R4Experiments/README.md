@@ -32,5 +32,7 @@ Each experiment in this directory contains:
 
 | # | Experiment Title | Key Concepts | Files / Path |
 |---|---|---|---|
+| **00** | Wireless (OTA) Bootloader Setup | ESP32-S3 co-processor, local Wi-Fi connection, over-the-air firmware uploads, network ports | [00-WiFi-OTA](file:///f:/AlphaBot2/R4Experiments/00-WiFi-OTA/README.md) |
 | **01** | Open-Loop Control & Motor Calibration | H-Bridge pin mapping, PWM motor speed control, hardware calibration offsets, open-loop drift | [01-Move-Straight](file:///f:/AlphaBot2/R4Experiments/01-Move-Straight/README.md) |
+
 
