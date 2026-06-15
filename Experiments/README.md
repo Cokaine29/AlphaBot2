@@ -37,4 +37,6 @@ Each experiment will be housed in its own subdirectory with:
 | # | Experiment Title | Key Concepts | Files / Path |
 |---|---|---|---|
 | **01** | Open-Loop Control & Motor Calibration | H-Bridge logic, PWM speeds, calibration offsets, open-loop drift | [01-Move-Straight](file:///f:/AlphaBot2/Experiments/01-Move-Straight/README.md) |
+| **02** | Differential-Drive Turning Concepts | Pivot turn vs. Swing turn, turning physics, timing-based calibration | [02-Turning-Concepts](file:///f:/AlphaBot2/Experiments/02-Turning-Concepts/README.md) |
+
 
