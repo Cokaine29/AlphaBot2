@@ -40,6 +40,8 @@ Each experiment will be housed in its own subdirectory with:
 | **02** | Differential-Drive Turning Concepts | Pivot turn vs. Swing turn, turning physics, timing-based calibration | [02-Turning-Concepts](file:///f:/AlphaBot2/Experiments/02-Turning-Concepts/README.md) |
 | **03** | Speed, Distance, and RPM Calibration | Wheel dimensions, speed modeling, time-distance kinematics, actuator characterization | [03-Speed-Kinematics](file:///f:/AlphaBot2/Experiments/03-Speed-Kinematics/README.md) |
 | **04** | I2C I/O Expansion & Joystick Control | I2C communication, PCF8574 expander, active-low logic, binary masking, pull-up config | [04-Joystick-I2C](file:///f:/AlphaBot2/Experiments/04-Joystick-I2C/README.md) |
+| **05** | Infrared (IR) Control & NEC Decodes | IR light modulation, NEC protocol format, pulse distance timing, byte check checksums | [05-IR-Remote](file:///f:/AlphaBot2/Experiments/05-IR-Remote/README.md) |
+
 
 
 
