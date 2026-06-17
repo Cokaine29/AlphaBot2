@@ -88,13 +88,35 @@ This experiment consists of three separate Arduino sketches:
 ## 📝 Lab Procedure & Student Tasks
 
 > [!IMPORTANT]
-> The robot will execute the turn immediately upon boot/reset, run for the specified duration, stop, and then enter an idle state. You can monitor the status wirelessly or over serial. To run the test again, simply press the **RESET** button on the Arduino board.
+> To ensure the robot runs immediately on boot without networking delay or connection timeouts, Wi-Fi, OTA, and Telnet Stream have been disabled in these sketches. You can monitor the status using the **USB Serial Monitor** (115200 baud). The robot will execute the turn immediately upon boot/reset, run for the specified duration, stop, and then enter an idle state. To run the test again, simply press the **RESET** button on the Arduino board.
+
+### 📊 Calibrated Baseline Parameters (UNO R4 WiFi)
+
+Through calibration on the AlphaBot2 with the Arduino UNO R4 WiFi, the following optimal parameters were determined for precise turning:
+
+* **Left Pivot Turn (90°)**:
+  * `TURN_SPEED`: `60`
+  * `TURN_DURATION_MS`: `200`
+  * Sketch: [Left-Turn.ino](file:///f:/AlphaBot2/R4Experiments/02-Turning-Concepts/Left-Turn/Left-Turn.ino)
+* **Right Pivot Turn (90°)**:
+  * `TURN_SPEED`: `65` (adjusted slightly higher to offset hardware drag)
+  * `TURN_DURATION_MS`: `200`
+  * Sketch: [Right-Turn.ino](file:///f:/AlphaBot2/R4Experiments/02-Turning-Concepts/Right-Turn/Right-Turn.ino)
+* **360° Spot Spin**:
+  * `SPIN_SPEED`: `60`
+  * `SPIN_DURATION_MS`: `900`
+  * Sketch: [Spin-360.ino](file:///f:/AlphaBot2/R4Experiments/02-Turning-Concepts/Spin-360/Spin-360.ino)
+
+---
 
 ### Task 1: Calibrating the 90-degree Left Pivot
 1. Open the [Left-Turn](file:///f:/AlphaBot2/R4Experiments/02-Turning-Concepts/Left-Turn/Left-Turn.ino) sketch in the editor.
 2. Connect your Arduino UNO R4 WiFi to your computer.
-3. Make sure the board is set to `arduino:renesas_uno:unor4wifi` and the correct COM port is selected.
-4. Upload the sketch.
+3. Make sure the board configuration is set in [.arduino-config.json](file:///f:/AlphaBot2/.arduino-config.json).
+4. Run the upload command:
+   ```powershell
+   .\manage.ps1 upload R4Experiments\02-Turning-Concepts\Left-Turn
+   ```
 5. Place the robot on a flat, clean surface. Mark its starting alignment.
 6. Turn the power switch ON. The robot will execute a left pivot turn.
 7. If it turns **less than 90 degrees**, increase `TURN_DURATION_MS` in the code.
@@ -103,14 +125,14 @@ This experiment consists of three separate Arduino sketches:
 
 ### Task 2: Calibrating the 90-degree Right Pivot
 1. Open the [Right-Turn](file:///f:/AlphaBot2/R4Experiments/02-Turning-Concepts/Right-Turn/Right-Turn.ino) sketch.
-2. Repeat the calibration process to find the exact `TURN_DURATION_MS` for a 90-degree right pivot.
+2. Repeat the calibration process to find the exact `TURN_DURATION_MS` and `TURN_SPEED` for a 90-degree right pivot.
 
 > [!NOTE]
-> Even at the same speed, the left and right motors might require slightly different durations due to gear friction and physical motor variances!
+> Even at the same speed, the left and right motors might require slightly different speeds or durations due to gear friction and physical motor variances! In our calibration, a `TURN_SPEED` of `65` was required on the right pivot to match the left pivot's turn response.
 
 ### Task 3: The 360-degree Spot Spin Challenge
 1. Open the [Spin-360](file:///f:/AlphaBot2/R4Experiments/02-Turning-Concepts/Spin-360/Spin-360.ino) sketch.
-2. Calibrate the delay `SPIN_DURATION_MS` until the robot completes exactly one full rotation and points back to its exact starting line.
+2. Calibrate the delay `SPIN_DURATION_MS` until the robot completes exactly one full rotation (360 degrees) and points back to its exact starting line. Our calibrated baseline is `900` ms at speed `60`.
 
 ---
 

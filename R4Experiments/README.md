@@ -34,5 +34,9 @@ Each experiment in this directory contains:
 |---|---|---|---|
 | **00** | Wireless (OTA) Bootloader Setup | ESP32-S3 co-processor, local Wi-Fi connection, over-the-air firmware uploads, network ports | [00-WiFi-OTA](file:///f:/AlphaBot2/R4Experiments/00-WiFi-OTA/README.md) |
 | **01** | Open-Loop Control & Motor Calibration | H-Bridge pin mapping, PWM motor speed control, hardware calibration offsets, open-loop drift | [01-Move-Straight](file:///f:/AlphaBot2/R4Experiments/01-Move-Straight/README.md) |
+| **02** | Differential-Drive Turning Concepts | Pivot Turn vs Swing Turn, calibration of Left, Right, and 360-degree turns | [02-Turning-Concepts](file:///f:/AlphaBot2/R4Experiments/02-Turning-Concepts/README.md) |
+| **03** | Speed, Distance, and RPM Calibration | Kinematics of differential drive, empirical speed-to-PWM calibration, open-loop distance control | [03-Speed-Kinematics](file:///f:/AlphaBot2/R4Experiments/03-Speed-Kinematics/README.md) |
+| **04** | I2C I/O Expansion & Joystick Control | PCF8574 expander address, quasi-bidirectional I/O, joystick mapping and masking, buzzer control | [04-Joystick-I2C](file:///f:/AlphaBot2/R4Experiments/04-Joystick-I2C/README.md) |
+| **05** | Infrared (IR) Communication & NEC Decodes | Modulation at 38 kHz, pulse distance modulation (PDM), bit-bang NEC decoder, remote navigation | [05-IR-Remote](file:///f:/AlphaBot2/R4Experiments/05-IR-Remote/README.md) |
 
 
