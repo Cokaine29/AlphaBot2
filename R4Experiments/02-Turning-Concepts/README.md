@@ -11,35 +11,56 @@
 
 On a differential-drive robot like the AlphaBot2, there is no steering wheel. Steering is achieved entirely by driving the left and right wheels at different speeds or in different directions.
 
-There are two primary ways to turn:
+### Pivot Turn vs. Swing Turn
+The two primary configurations for turning are:
 
-### 1. Pivot Turn (Spin on the Spot)
-* **How it works**: The left and right wheels rotate at the same speed but in **opposite directions**.
-* **Result**: The robot rotates around its geometric center. It has a turning radius of zero, making it highly maneuverable in tight spaces (like mazes).
-* **Code Logic**:
-  * **Left Pivot**: Left Motor -> Backward, Right Motor -> Forward
-  * **Right Pivot**: Left Motor -> Forward, Right Motor -> Backward
+```mermaid
+graph TD
+    subgraph Pivot ["Pivot Turn (Spin on the Spot)"]
+        direction LR
+        L1[Left Motor] -- "Backward Direction" --> LW1[Left Wheel]
+        R1[Right Motor] -- "Forward Direction" --> RW1[Right Wheel]
+        LW1 --> Spin[Spin CCW around center]
+        RW1 --> Spin
+    end
+    
+    subgraph Swing ["Swing Turn (Radius Turn)"]
+        direction LR
+        L2[Left Motor] -- "Stopped (Speed = 0)" --> LW2[Left Wheel]
+        R2[Right Motor] -- "Forward Direction" --> RW2[Right Wheel]
+        LW2 --> Arc[Swing CCW around left wheel]
+        RW2 --> Arc
+    end
 
-### 2. Swing Turn (Single-Wheel Pivot)
-* **How it works**: One wheel is stopped (speed = 0) while the opposite wheel rotates forward.
-* **Result**: The robot pivots around the stationary wheel, tracing an arc.
-* **Code Logic**:
-  * **Left Swing**: Left Motor -> Stopped, Right Motor -> Forward
-  * **Right Swing**: Left Motor -> Forward, Right Motor -> Stopped
+    style Pivot fill:#f9f9f9,stroke:#333,stroke-width:1px
+    style Swing fill:#f9f9f9,stroke:#333,stroke-width:1px
+```
+
+* **Pivot Turn (Zero Turning Radius)**: Left and right wheels spin in **opposite directions** at the same speed. The robot rotates around its center point, which is optimal for tight spaces like mazes.
+* **Swing Turn (Radius Turn)**: One wheel is held **stationary (Speed = 0)** while the opposite wheel rotates forward. The robot sweeps in an arc around the stationary wheel.
 
 ---
 
-## 🧭 Angle Calibration in Open-Loop Systems
+## 🧭 Open-Loop Calibration Flow
 
-Without encoders (which count wheel rotations) or a gyroscope (which measures angles), a robot cannot directly measure how many degrees it has turned.
+Without encoders (which count wheel rotations) or a gyroscope (which measures angles), a robot cannot directly measure how many degrees it has turned. Instead, we calibrate turns using **time** and **speed**:
 
-Instead, we calibrate turns using **time** and **speed**:
+$$\text{Turning Angle} \propto \text{Motor Speed} \times \text{Duration (ms)}$$
 
-`Turning Angle is proportional to Motor Speed * Duration (ms)`
+```mermaid
+graph TD
+    Start([Start Calibration]) --> Flash[Flash Sketch with Baseline Delay]
+    Flash --> Run[Run Turn Test]
+    Run --> Measure{Did it turn exactly target angle?}
+    Measure -- "Under-rotated" --> Increase[Increase TURN_DURATION_MS / SPIN_DURATION_MS]
+    Increase --> Flash
+    Measure -- "Over-rotated" --> Decrease[Decrease TURN_DURATION_MS / SPIN_DURATION_MS]
+    Decrease --> Flash
+    Measure -- "Exactly Target Angle" --> Finish([Calibration Success!])
 
-To turn exactly 90 degrees or 360 degrees:
-1. We choose a fixed turning speed (e.g., `60` PWM).
-2. We experimentally find the exact time duration (in milliseconds) required for the robot to complete the target angle.
+    style Start fill:#f9f9f9,stroke:#333,stroke-width:1px
+    style Finish fill:#00979C,stroke:#005C5E,stroke-width:2px,color:#fff
+```
 
 ---
 
@@ -66,22 +87,30 @@ This experiment consists of three separate Arduino sketches:
 
 ## 📝 Lab Procedure & Student Tasks
 
+> [!IMPORTANT]
+> The robot will execute the turn immediately upon boot/reset, run for the specified duration, stop, and then enter an idle state. You can monitor the status wirelessly or over serial. To run the test again, simply press the **RESET** button on the Arduino board.
+
 ### Task 1: Calibrating the 90-degree Left Pivot
-1. Open the [Left-Turn](file:///f:/AlphaBot2/R4Experiments/02-Turning-Concepts/Left-Turn/Left-Turn.ino) sketch.
-2. Place the robot on a flat surface. Mark its starting alignment.
-3. Upload the sketch wirelessly over OTA. The robot will attempt a 90-degree left turn on the spot.
-4. If it turns **less than 90 degrees**, increase `TURN_DURATION_MS` in the code.
-5. If it over-rotates, decrease `TURN_DURATION_MS`.
-6. Iterate until the turn is exactly 90 degrees.
+1. Open the [Left-Turn](file:///f:/AlphaBot2/R4Experiments/02-Turning-Concepts/Left-Turn/Left-Turn.ino) sketch in the editor.
+2. Connect your Arduino UNO R4 WiFi to your computer.
+3. Make sure the board is set to `arduino:renesas_uno:unor4wifi` and the correct COM port is selected.
+4. Upload the sketch.
+5. Place the robot on a flat, clean surface. Mark its starting alignment.
+6. Turn the power switch ON. The robot will execute a left pivot turn.
+7. If it turns **less than 90 degrees**, increase `TURN_DURATION_MS` in the code.
+8. If it over-rotates, decrease `TURN_DURATION_MS`.
+9. Upload the updated code and iterate until the turn is exactly 90 degrees.
 
 ### Task 2: Calibrating the 90-degree Right Pivot
 1. Open the [Right-Turn](file:///f:/AlphaBot2/R4Experiments/02-Turning-Concepts/Right-Turn/Right-Turn.ino) sketch.
 2. Repeat the calibration process to find the exact `TURN_DURATION_MS` for a 90-degree right pivot.
-3. *Note*: Even at the same speed, left and right motors might require slightly different durations due to friction!
+
+> [!NOTE]
+> Even at the same speed, the left and right motors might require slightly different durations due to gear friction and physical motor variances!
 
 ### Task 3: The 360-degree Spot Spin Challenge
 1. Open the [Spin-360](file:///f:/AlphaBot2/R4Experiments/02-Turning-Concepts/Spin-360/Spin-360.ino) sketch.
-2. Calibrate the delay until the robot does exactly one full rotation and points back to its exact starting line.
+2. Calibrate the delay `SPIN_DURATION_MS` until the robot completes exactly one full rotation and points back to its exact starting line.
 
 ---
 
