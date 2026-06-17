@@ -1,12 +1,13 @@
 /*
-   Experiment 01: Open-Loop Control & H-Bridge Motor Calibration (R4 WiFi)
-   
-   This sketch drives the AlphaBot2 forward for 5 seconds.
-   Students will calibrate the LEFT_SPEED_OFFSET and RIGHT_SPEED_OFFSET
-   constants to ensure the robot moves in a perfectly straight line.
-   
+   Experiment 03: Distance Target Execution (R4 WiFi)
+
+   This sketch calculates the required run duration in milliseconds
+   for the robot to travel a user-defined distance in centimeters,
+   runs the motors, and stops.
+
    Compatible with Arduino UNO R4 WiFi.
 */
+
 #include <WiFiS3.h>
 #include <ArduinoOTA.h>
 #include <TelnetStream.h>
@@ -27,16 +28,24 @@ const char *ota_password = "admin";
 #define BIN1 A2 // Right Motor Direction 1
 #define BIN2 A3 // Right Motor Direction 2
 
-// --- CALIBRATION OFFSETS ---
-// TODO: Adjust these values during the lab to align your wheels!
-// Range: -50 to 50
+// --- CALIBRATED CONSTANTS ---
+// TODO: Input the speed (in cm/s) that you measured for PWM = 120 in Task 1.
+// E.g. If the bot went 96 cm in 3 seconds, set this to 32.0
+const float CALIBRATED_SPEED_CMS = 32.0;
+const int TARGET_PWM = 120;
+
+// --- TARGET DISTANCE ---
+// TODO: Set the distance (in centimeters) you want the robot to travel!
+const float TARGET_DISTANCE_CM = 150.0;
+
+// Base wheel balance offsets calibrated in Experiment 01
 const int LEFT_SPEED_OFFSET = 0;
 const int RIGHT_SPEED_OFFSET = 0;
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  Serial.println("Starting OTA and Motor Setup...");
+  Serial.println("Starting OTA and Distance Target Setup...");
 
   // 1. Connect to Wi-Fi
   Serial.print("Connecting to: ");
@@ -63,11 +72,11 @@ void setup() {
   TelnetStream.begin();
   Serial.println("Telnet Stream started on port 23.");
   TelnetStream.println("--------------------------------------------------");
-  TelnetStream.println("Sketch: R4-01-Move-Straight");
+  TelnetStream.println("Sketch: R4-03-Distance-Target");
   TelnetStream.println("Status: Setup Completed");
   TelnetStream.println("--------------------------------------------------");
 
-  // Configure motor driver control pins as outputs
+  // Configure motor driver pins
   pinMode(PWMA, OUTPUT);
   pinMode(AIN2, OUTPUT);
   pinMode(AIN1, OUTPUT);
@@ -75,58 +84,59 @@ void setup() {
   pinMode(BIN1, OUTPUT);
   pinMode(BIN2, OUTPUT);
 
-  // Initialize motors to fully stopped
   stopMotors();
-  delay(1000); // Wait 1 second before starting
+  delay(1500); // Give students time to place the bot on the start line
 }
 
 void loop() {
-  // Move forward at base speed of 60 (low speed for classroom safety)
-  TelnetStream.println("[R4-01-Move-Straight] Driving forward at speed 60...");
-  moveForward(60);
+  // Calculate run duration: t = d / v
+  // Multiply by 1000 to convert seconds to milliseconds
+  float runDurationSeconds = TARGET_DISTANCE_CM / CALIBRATED_SPEED_CMS;
+  unsigned long runDurationMillis = (unsigned long)(runDurationSeconds * 1000.0);
 
-  // Keep moving for 5 seconds, polling OTA and TelnetStream
-  unsigned long moveStart = millis();
-  while (millis() - moveStart < 5000) {
+  // Drive forward at target PWM speed
+  TelnetStream.print("[R4-03-Distance-Target] Driving ");
+  TelnetStream.print(TARGET_DISTANCE_CM);
+  TelnetStream.print(" cm at speed ");
+  TelnetStream.print(TARGET_PWM);
+  TelnetStream.print(" for ");
+  TelnetStream.print(runDurationMillis);
+  TelnetStream.println(" ms...");
+  moveForward(TARGET_PWM);
+
+  // Run for the computed duration, polling OTA and TelnetStream
+  unsigned long runStart = millis();
+  while (millis() - runStart < runDurationMillis) {
     ArduinoOTA.poll();
-    TelnetStream.available(); // Poll TelnetStream to handle client connection lifecycle
+    TelnetStream.available();
     delay(10);
   }
 
   // Stop the motors
   stopMotors();
-  Serial.println("Motors stopped. Ready for wireless OTA uploads...");
-  TelnetStream.println("[R4-01-Move-Straight] Motors stopped. Ready for wireless OTA uploads...");
+  Serial.println("Target run complete. Ready for wireless OTA uploads...");
+  TelnetStream.println("[R4-03-Distance-Target] Target run complete. Ready for wireless OTA uploads...");
 
-  // Stop program execution, but keep polling OTA and Telnet
+  // Lock execution forever, but keep polling OTA and TelnetStream
   unsigned long lastLog = 0;
   while (1) {
     ArduinoOTA.poll();
-    TelnetStream.available(); // Poll TelnetStream to handle client connection lifecycle
+    TelnetStream.available();
     if (millis() - lastLog > 2000) {
       lastLog = millis();
-      TelnetStream.println("Heartbeat: [R4-01-Move-Straight] Robot is idle. Ready for OTA uploads.");
+      TelnetStream.println("Heartbeat: [R4-03-Distance-Target] Robot is idle. Ready for OTA uploads.");
     }
     delay(10);
   }
 }
 
 /**
- * Commands the H-bridge to drive both motors forward.
- * Applies the calibration speed offsets to balance rotation rates.
- *
- * @param baseSpeed Target PWM value (0 to 255)
+ * Commands both motors forward using the H-Bridge
  */
 void moveForward(int baseSpeed) {
-  // 1. Calculate speeds after offsets
-  int finalLeftSpeed = baseSpeed + LEFT_SPEED_OFFSET;
-  int finalRightSpeed = baseSpeed + RIGHT_SPEED_OFFSET;
+  int finalLeftSpeed = constrain(baseSpeed + LEFT_SPEED_OFFSET, 0, 255);
+  int finalRightSpeed = constrain(baseSpeed + RIGHT_SPEED_OFFSET, 0, 255);
 
-  // 2. Constrain speeds to valid PWM range [0, 255]
-  finalLeftSpeed = constrain(finalLeftSpeed, 0, 255);
-  finalRightSpeed = constrain(finalRightSpeed, 0, 255);
-
-  // 3. Set directions to Forward
   // Left Motor Forward: AIN1 = LOW, AIN2 = HIGH
   digitalWrite(AIN1, LOW);
   digitalWrite(AIN2, HIGH);
@@ -135,15 +145,11 @@ void moveForward(int baseSpeed) {
   digitalWrite(BIN1, LOW);
   digitalWrite(BIN2, HIGH);
 
-  // 4. Output the analog PWM speeds to the H-Bridge speed pins
+  // Apply speeds
   analogWrite(PWMA, finalLeftSpeed);
   analogWrite(PWMB, finalRightSpeed);
 }
 
-/**
- * Instantly stops both motors by cutting PWM signals and pulling
- * direction pins LOW.
- */
 void stopMotors() {
   analogWrite(PWMA, 0);
   analogWrite(PWMB, 0);

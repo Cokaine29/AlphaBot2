@@ -1,6 +1,6 @@
 {
     "fqbn":  "arduino:renesas_uno:unor4wifi",
-    "port":  "COM3",
-    "baud":  115200
+    "port":  "COM11",
+    "baud":  115200,
+    "ip":    "10.49.181.159"
 }
-

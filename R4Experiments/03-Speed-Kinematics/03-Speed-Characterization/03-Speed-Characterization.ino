@@ -1,12 +1,15 @@
 /*
-   Experiment 01: Open-Loop Control & H-Bridge Motor Calibration (R4 WiFi)
-   
-   This sketch drives the AlphaBot2 forward for 5 seconds.
-   Students will calibrate the LEFT_SPEED_OFFSET and RIGHT_SPEED_OFFSET
-   constants to ensure the robot moves in a perfectly straight line.
-   
+   Experiment 03: Speed Characterization (R4 WiFi)
+
+   This sketch drives the AlphaBot2 forward at a specified PWM speed
+   for exactly 3.0 seconds, then stops.
+
+   Students will use this to measure the physical distance traveled
+   at different PWM speeds to calibrate their robot.
+
    Compatible with Arduino UNO R4 WiFi.
 */
+
 #include <WiFiS3.h>
 #include <ArduinoOTA.h>
 #include <TelnetStream.h>
@@ -27,16 +30,18 @@ const char *ota_password = "admin";
 #define BIN1 A2 // Right Motor Direction 1
 #define BIN2 A3 // Right Motor Direction 2
 
-// --- CALIBRATION OFFSETS ---
-// TODO: Adjust these values during the lab to align your wheels!
-// Range: -50 to 50
+// --- CHARACTERIZATION PARAMETER ---
+// TODO: Change this value (80, 120, 160, 200) to collect different data points
+const int TEST_PWM = 80;
+
+// Base wheel balance offsets calibrated in Experiment 01
 const int LEFT_SPEED_OFFSET = 0;
 const int RIGHT_SPEED_OFFSET = 0;
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  Serial.println("Starting OTA and Motor Setup...");
+  Serial.println("Starting OTA and Speed Characterization Setup...");
 
   // 1. Connect to Wi-Fi
   Serial.print("Connecting to: ");
@@ -63,11 +68,11 @@ void setup() {
   TelnetStream.begin();
   Serial.println("Telnet Stream started on port 23.");
   TelnetStream.println("--------------------------------------------------");
-  TelnetStream.println("Sketch: R4-01-Move-Straight");
+  TelnetStream.println("Sketch: R4-03-Speed-Characterization");
   TelnetStream.println("Status: Setup Completed");
   TelnetStream.println("--------------------------------------------------");
 
-  // Configure motor driver control pins as outputs
+  // Configure motor control pins
   pinMode(PWMA, OUTPUT);
   pinMode(AIN2, OUTPUT);
   pinMode(AIN1, OUTPUT);
@@ -75,58 +80,49 @@ void setup() {
   pinMode(BIN1, OUTPUT);
   pinMode(BIN2, OUTPUT);
 
-  // Initialize motors to fully stopped
   stopMotors();
-  delay(1000); // Wait 1 second before starting
+  delay(1500); // Give students time to place the bot on the start line
 }
 
 void loop() {
-  // Move forward at base speed of 60 (low speed for classroom safety)
-  TelnetStream.println("[R4-01-Move-Straight] Driving forward at speed 60...");
-  moveForward(60);
+  // Drive forward at test speed
+  TelnetStream.print("[R4-03-Speed-Characterization] Driving forward at PWM speed ");
+  TelnetStream.println(TEST_PWM);
+  moveForward(TEST_PWM);
 
-  // Keep moving for 5 seconds, polling OTA and TelnetStream
-  unsigned long moveStart = millis();
-  while (millis() - moveStart < 5000) {
+  // Drive for exactly 3.0 seconds (3000 ms), polling OTA and TelnetStream
+  unsigned long runStart = millis();
+  while (millis() - runStart < 3000) {
     ArduinoOTA.poll();
-    TelnetStream.available(); // Poll TelnetStream to handle client connection lifecycle
+    TelnetStream.available();
     delay(10);
   }
 
   // Stop the motors
   stopMotors();
-  Serial.println("Motors stopped. Ready for wireless OTA uploads...");
-  TelnetStream.println("[R4-01-Move-Straight] Motors stopped. Ready for wireless OTA uploads...");
+  Serial.println("Characterization run complete. Ready for wireless OTA uploads...");
+  TelnetStream.println("[R4-03-Speed-Characterization] Characterization run complete. Ready for wireless OTA uploads...");
 
-  // Stop program execution, but keep polling OTA and Telnet
+  // Lock execution forever, but keep polling OTA and TelnetStream
   unsigned long lastLog = 0;
   while (1) {
     ArduinoOTA.poll();
-    TelnetStream.available(); // Poll TelnetStream to handle client connection lifecycle
+    TelnetStream.available();
     if (millis() - lastLog > 2000) {
       lastLog = millis();
-      TelnetStream.println("Heartbeat: [R4-01-Move-Straight] Robot is idle. Ready for OTA uploads.");
+      TelnetStream.println("Heartbeat: [R4-03-Speed-Characterization] Robot is idle. Ready for OTA uploads.");
     }
     delay(10);
   }
 }
 
 /**
- * Commands the H-bridge to drive both motors forward.
- * Applies the calibration speed offsets to balance rotation rates.
- *
- * @param baseSpeed Target PWM value (0 to 255)
+ * Commands both motors forward using the H-Bridge
  */
 void moveForward(int baseSpeed) {
-  // 1. Calculate speeds after offsets
-  int finalLeftSpeed = baseSpeed + LEFT_SPEED_OFFSET;
-  int finalRightSpeed = baseSpeed + RIGHT_SPEED_OFFSET;
+  int finalLeftSpeed = constrain(baseSpeed + LEFT_SPEED_OFFSET, 0, 255);
+  int finalRightSpeed = constrain(baseSpeed + RIGHT_SPEED_OFFSET, 0, 255);
 
-  // 2. Constrain speeds to valid PWM range [0, 255]
-  finalLeftSpeed = constrain(finalLeftSpeed, 0, 255);
-  finalRightSpeed = constrain(finalRightSpeed, 0, 255);
-
-  // 3. Set directions to Forward
   // Left Motor Forward: AIN1 = LOW, AIN2 = HIGH
   digitalWrite(AIN1, LOW);
   digitalWrite(AIN2, HIGH);
@@ -135,15 +131,11 @@ void moveForward(int baseSpeed) {
   digitalWrite(BIN1, LOW);
   digitalWrite(BIN2, HIGH);
 
-  // 4. Output the analog PWM speeds to the H-Bridge speed pins
+  // Apply speeds
   analogWrite(PWMA, finalLeftSpeed);
   analogWrite(PWMB, finalRightSpeed);
 }
 
-/**
- * Instantly stops both motors by cutting PWM signals and pulling
- * direction pins LOW.
- */
 void stopMotors() {
   analogWrite(PWMA, 0);
   analogWrite(PWMB, 0);

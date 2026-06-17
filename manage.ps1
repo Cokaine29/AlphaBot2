@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory=$true, Position=0)]
-    [ValidateSet("compile", "upload", "monitor", "detect")]
+    [ValidateSet("compile", "upload", "upload-ota", "monitor", "detect")]
     [string]$Action,
 
     [Parameter(Position=1)]
@@ -82,9 +82,16 @@ switch ($Action) {
         Write-Host "==================================================" -ForegroundColor Blue
         
         $libsPath = Join-Path $PSScriptRoot "Arduino/libraries"
-        $libNeoPixel = Join-Path $libsPath "Adafruit_NeoPixel"
         $libTRSensors = Join-Path $libsPath "TRSensors"
-        arduino-cli compile --fqbn $config.fqbn --libraries $libsPath --library $libNeoPixel --library $libTRSensors $SketchDir
+        
+        $compileArgs = @("compile", "--fqbn", $config.fqbn, "--libraries", $libsPath, "--library", $libTRSensors)
+        if ($config.fqbn -notmatch "renesas_uno") {
+            $libNeoPixel = Join-Path $libsPath "Adafruit_NeoPixel"
+            $compileArgs += @("--library", $libNeoPixel)
+        }
+        $compileArgs += $SketchDir
+        
+        arduino-cli @compileArgs
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host "`nCompilation Successful!" -ForegroundColor Green
@@ -124,10 +131,17 @@ switch ($Action) {
         
         # First Compile
         $libsPath = Join-Path $PSScriptRoot "Arduino/libraries"
-        $libNeoPixel = Join-Path $libsPath "Adafruit_NeoPixel"
         $libTRSensors = Join-Path $libsPath "TRSensors"
         Write-Host "Re-verifying code..." -ForegroundColor Gray
-        arduino-cli compile --fqbn $config.fqbn --libraries $libsPath --library $libNeoPixel --library $libTRSensors $SketchDir
+        
+        $compileArgs = @("compile", "--fqbn", $config.fqbn, "--libraries", $libsPath, "--library", $libTRSensors)
+        if ($config.fqbn -notmatch "renesas_uno") {
+            $libNeoPixel = Join-Path $libsPath "Adafruit_NeoPixel"
+            $compileArgs += @("--library", $libNeoPixel)
+        }
+        $compileArgs += $SketchDir
+        
+        arduino-cli @compileArgs
         if ($LASTEXITCODE -ne 0) {
             Write-Host "`nError: Compilation failed. Aborting upload." -ForegroundColor Red
             exit $LASTEXITCODE
@@ -161,5 +175,62 @@ switch ($Action) {
         Write-Host "==================================================" -ForegroundColor Blue
         
         arduino-cli monitor -p $port -c baudrate=$($config.baud)
+    }
+
+    "upload-ota" {
+        if ([string]::IsNullOrEmpty($SketchDir)) {
+            $SketchDir = $PSScriptRoot
+        }
+        
+        # Determine IP
+        $ip = $config.ip
+        if ([string]::IsNullOrEmpty($ip)) {
+            $ip = "10.49.181.159"
+        }
+        
+        Write-Host "==================================================" -ForegroundColor Blue
+        Write-Host "Uploading Sketch wirelessly via OTA" -ForegroundColor Cyan
+        Write-Host "Sketch: $SketchDir" -ForegroundColor Cyan
+        Write-Host "Target IP: $ip" -ForegroundColor Cyan
+        Write-Host "==================================================" -ForegroundColor Blue
+        
+        # First Compile
+        $libsPath = Join-Path $PSScriptRoot "Arduino/libraries"
+        $libTRSensors = Join-Path $libsPath "TRSensors"
+        Write-Host "Re-verifying code..." -ForegroundColor Gray
+        
+        $compileArgs = @("compile", "--fqbn", $config.fqbn, "--libraries", $libsPath, "--library", $libTRSensors)
+        if ($config.fqbn -notmatch "renesas_uno") {
+            $libNeoPixel = Join-Path $libsPath "Adafruit_NeoPixel"
+            $compileArgs += @("--library", $libNeoPixel)
+        }
+        $compileArgs += $SketchDir
+        
+        arduino-cli @compileArgs
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "`nError: Compilation failed. Aborting upload." -ForegroundColor Red
+            exit $LASTEXITCODE
+        }
+        
+        # Then Upload via arduinoOTA
+        $binName = (Get-Item $SketchDir).Name + ".ino.bin"
+        $binPath = Join-Path $SketchDir "build/$binName"
+        
+        if (-not (Test-Path $binPath)) {
+            Write-Host "Error: Could not find compiled binary at $binPath" -ForegroundColor Red
+            exit 1
+        }
+        
+        $otaPath = "C:\Users\Admin\AppData\Local\Arduino15\packages\arduino\tools\arduinoOTA\1.3.0\bin\arduinoOTA.exe"
+        
+        Write-Host "Uploading $binName to $ip..." -ForegroundColor Gray
+        & $otaPath -address $ip -port 65280 -username arduino -password admin -sketch $binPath -upload /sketch
+        
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "`nOTA Upload Successful!" -ForegroundColor Green
+        } else {
+            Write-Host "`nOTA Upload Failed with Exit Code $LASTEXITCODE" -ForegroundColor Red
+            exit $LASTEXITCODE
+        }
     }
 }
