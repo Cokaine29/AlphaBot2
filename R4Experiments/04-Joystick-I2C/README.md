@@ -80,11 +80,18 @@ Since we only care about the joystick pins (P0 to P4), we mask out the top 3 bit
 
 ## 📝 Lab Procedure & Student Tasks
 
+> [!IMPORTANT]
+> To ensure the robot runs immediately on boot without networking delay or connection timeouts, Wi-Fi, OTA, and Telnet Stream have been disabled in this sketch. The robot will read and react to joystick inputs immediately upon boot/reset. Status monitoring is done entirely over the **USB Serial Monitor** (115200 baud).
+
 ### Task 1: Upload and Verify Joystick Inputs
-1. Open [04-Joystick-I2C.ino](file:///f:/AlphaBot2/R4Experiments/04-Joystick-I2C/04-Joystick-I2C.ino) and upload it wirelessly over OTA.
-2. Open the **Serial Monitor** at **115200 baud** (or monitor wirelessly if configured).
-3. Move the joystick in all 5 directions. Verify that the correct direction is printed in the Serial Monitor and the buzzer sounds.
-4. Check that the NeoPixel LEDs light up:
+1. Open [04-Joystick-I2C.ino](file:///f:/AlphaBot2/R4Experiments/04-Joystick-I2C/04-Joystick-I2C.ino).
+2. Upload the code to the robot using PowerShell:
+   ```powershell
+   .\manage.ps1 upload R4Experiments\04-Joystick-I2C
+   ```
+3. Open the **Serial Monitor** at **115200 baud**.
+4. Move the joystick in all 5 directions. Verify that the correct direction is printed in the Serial Monitor and the buzzer sounds.
+5. Check that the NeoPixel LEDs light up:
    * **UP** -> Green
    * **DOWN** -> Red
    * **LEFT** -> Yellow

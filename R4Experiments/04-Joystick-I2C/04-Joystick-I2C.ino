@@ -1,5 +1,5 @@
 /*
-   Experiment 04: I2C I/O Expansion & Joystick Control (R4 WiFi)
+   Experiment 04: I2C I/O Expansion & Joystick Control (R4 WiFi - WiFi/OTA Disabled)
 
    This sketch reads the 5-way joystick on the AlphaBot2 using the
    PCF8574 I2C I/O expander. Pressing the joystick moves the motors,
@@ -12,17 +12,6 @@
 
 #include <Wire.h>
 #include <Adafruit_NeoPixel.h>
-#include <WiFiS3.h>
-#include <ArduinoOTA.h>
-#include <TelnetStream.h>
-
-// --- WIFI CONFIGURATION ---
-const char *ssid = "REDMI_NEW";
-const char *pass = "password";
-
-// --- OTA CONFIGURATION ---
-const char *ota_hostname = "AlphaBot2-R4";
-const char *ota_password = "admin";
 
 // H-Bridge Pin Definitions
 #define PWMA 6  // Left Motor Speed pin (ENA)
@@ -64,36 +53,7 @@ void stopMotors();
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  Serial.println("AlphaBot2 Experiment 04 - Joystick starting...");
-
-  // 1. Connect to Wi-Fi
-  Serial.print("Connecting to: ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, pass);
-
-  while (WiFi.status() != WL_CONNECTED || WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("\nWiFi connected successfully!");
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
-
-  // 2. Start the ArduinoOTA Listener
-  ArduinoOTA.onStart([]() {
-    TelnetStream.stop();
-  });
-  ArduinoOTA.begin(WiFi.localIP(), ota_hostname, ota_password, InternalStorage);
-  Serial.println("OTA Listener started.");
-
-  // 3. Start TelnetStream
-  TelnetStream.begin();
-  Serial.println("Telnet Stream started on port 23.");
-  TelnetStream.println("--------------------------------------------------");
-  TelnetStream.println("Sketch: R4-04-Joystick-I2C");
-  TelnetStream.println("Status: Setup Completed");
-  TelnetStream.println("--------------------------------------------------");
+  Serial.println("AlphaBot2 Experiment 04 - Joystick starting (Wi-Fi/OTA Disabled)...");
 
   Wire.begin();
 
@@ -116,17 +76,6 @@ void setup() {
 }
 
 void loop() {
-  // Constantly check/poll for incoming Wi-Fi firmware packets and Telnet client status
-  ArduinoOTA.poll();
-  TelnetStream.available();
-
-  // Periodic heartbeat when idle (no button pressed)
-  static unsigned long lastLog = 0;
-  if (value == 0xFF && millis() - lastLog > 2000) {
-    lastLog = millis();
-    TelnetStream.println("Heartbeat: [R4-04-Joystick-I2C] Robot is idle. Ready for OTA uploads.");
-  }
-
   // 1. Enable inputs (write 1 to pins P0-P4)
   PCF8574Write(0x1F | PCF8574Read());
 
@@ -140,35 +89,30 @@ void loop() {
     switch (value) {
       case 0xFE: // P0 is LOW (UP)
         Serial.println("Joystick: UP -> Driving FORWARD");
-        TelnetStream.println("[R4-04-Joystick-I2C] Joystick: UP -> Driving FORWARD");
         setNeoPixelColor(RGB.Color(0, 255, 0)); // Green
         forward();
         break;
 
       case 0xFD: // P1 is LOW (RIGHT)
         Serial.println("Joystick: RIGHT -> Pivoting RIGHT");
-        TelnetStream.println("[R4-04-Joystick-I2C] Joystick: RIGHT -> Pivoting RIGHT");
         setNeoPixelColor(RGB.Color(0, 0, 255)); // Blue
         right();
         break;
 
       case 0xFB: // P2 is LOW (LEFT)
         Serial.println("Joystick: LEFT -> Pivoting LEFT");
-        TelnetStream.println("[R4-04-Joystick-I2C] Joystick: LEFT -> Pivoting LEFT");
         setNeoPixelColor(RGB.Color(255, 255, 0)); // Yellow (Red + Green)
         left();
         break;
 
       case 0xF7: // P3 is LOW (DOWN)
         Serial.println("Joystick: DOWN -> Driving BACKWARD");
-        TelnetStream.println("[R4-04-Joystick-I2C] Joystick: DOWN -> Driving BACKWARD");
         setNeoPixelColor(RGB.Color(255, 0, 0)); // Red
         backward();
         break;
 
       case 0xEF: // P4 is LOW (CENTER/OK)
         Serial.println("Joystick: CENTER -> Driving FORWARD (Alert Mode)");
-        TelnetStream.println("[R4-04-Joystick-I2C] Joystick: CENTER -> Driving FORWARD (Alert Mode)");
         setNeoPixelColor(RGB.Color(0, 255, 255)); // Cyan
         forward();
         break;
@@ -176,16 +120,11 @@ void loop() {
       default:
         Serial.print("Joystick: UNKNOWN combination (Hex: 0x");
         Serial.println(value, HEX);
-        TelnetStream.print("[R4-04-Joystick-I2C] Joystick: UNKNOWN combination (Hex: 0x");
-        TelnetStream.println(value, HEX);
         break;
     }
 
     // 4. Wait until the joystick button is released
     while (value != 0xFF) {
-      // Make sure OTA and Telnet work even while holding down the joystick
-      ArduinoOTA.poll();
-      TelnetStream.available();
       PCF8574Write(0x1F | PCF8574Read());
       value = PCF8574Read() | 0xE0;
       delay(10); // 10ms debounce delay
@@ -193,7 +132,6 @@ void loop() {
 
     // 5. Button was released -> Stop everything
     Serial.println("Joystick: RELEASED -> Stopping motors");
-    TelnetStream.println("[R4-04-Joystick-I2C] Joystick: RELEASED -> Stopping motors");
     stopMotors();
     setBuzzer(false); // Turn buzzer OFF
     setNeoPixelColor(RGB.Color(0, 0, 0)); // Turn off NeoPixels

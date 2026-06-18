@@ -45,14 +45,21 @@ This experiment consists of two Arduino sketches:
 
 ## 📝 Lab Procedure & Student Tasks
 
+> [!IMPORTANT]
+> To ensure the robot runs immediately on boot without networking delay or connection timeouts, Wi-Fi, OTA, and Telnet Stream have been disabled in these sketches. The robot will execute the movement immediately upon boot/reset, run for the specified duration, and stop. Status monitoring is done entirely over the **USB Serial Monitor** (115200 baud). To run the test again, simply press the **RESET** button on the Arduino board.
+
 ### Task 1: Calibrate Speed vs. PWM (Characterization)
 1. Mark a clear starting line on a flat floor. Lay out a tape measure next to it.
 2. Open the [03-Speed-Characterization](file:///f:/AlphaBot2/R4Experiments/03-Speed-Kinematics/03-Speed-Characterization/03-Speed-Characterization.ino) sketch.
-3. In the sketch, set `TEST_PWM = 80`. Upload the code to the robot wirelessly via OTA.
-4. Place the wheels exactly on the start line, turn the robot on, and let it run for 3 seconds.
-5. Measure the exact distance traveled in centimeters and record it in your table.
-6. Repeat steps 3–5 for PWM values of `120`, `160`, and `200`.
-7. Calculate the Speed (v = Distance / 3.0 seconds) and RPM (RPM = v * 4.55) for each test.
+3. In the sketch, set `TEST_PWM = 80`.
+4. Upload the code to the robot using PowerShell:
+   ```powershell
+   .\manage.ps1 upload R4Experiments\03-Speed-Kinematics\03-Speed-Characterization
+   ```
+5. Place the wheels exactly on the start line, turn the robot on, and let it run for 3 seconds.
+6. Measure the exact distance traveled in centimeters and record it in your table.
+7. Repeat steps 3–6 for PWM values of `120`, `160`, and `200`.
+8. Calculate the Speed (v = Distance / 3.0 seconds) and RPM (RPM = v * 4.55) for each test.
 
 | PWM | Test Time (t) | Distance (d) | Speed (v = d/t) | Wheel RPM |
 | :--- | :---: | :---: | :---: | :---: |
@@ -67,10 +74,14 @@ This experiment consists of two Arduino sketches:
 
 ### Task 3: Driving a Target Distance
 1. Open the [03-Distance-Target](file:///f:/AlphaBot2/R4Experiments/03-Speed-Kinematics/03-Distance-Target/03-Distance-Target.ino) sketch.
-2. In the code, input your calibrated speed value for PWM 120 (e.g., if you measured 32 cm/s, set `CALIBRATED_SPEED = 32.0;`).
+2. In the code, input your calibrated speed value for PWM 120 (e.g., if you measured 32 cm/s, set `CALIBRATED_SPEED_CMS = 32.0;`).
 3. Set the target distance: `TARGET_DISTANCE_CM = 150.0;`
-4. Upload the code, run it, and measure the actual distance traveled.
-5. Calculate the percentage error:
+4. Upload the code using PowerShell:
+   ```powershell
+   .\manage.ps1 upload R4Experiments\03-Speed-Kinematics\03-Distance-Target
+   ```
+5. Run it, and measure the actual distance traveled.
+6. Calculate the percentage error:
    Error % = (|Actual Distance - Target Distance| / Target Distance) * 100
 
 ---

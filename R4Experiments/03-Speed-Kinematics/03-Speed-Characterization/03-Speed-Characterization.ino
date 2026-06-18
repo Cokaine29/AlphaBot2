@@ -1,5 +1,5 @@
 /*
-   Experiment 03: Speed Characterization (R4 WiFi)
+   Experiment 03: Speed Characterization (R4 WiFi - WiFi/OTA Disabled)
 
    This sketch drives the AlphaBot2 forward at a specified PWM speed
    for exactly 3.0 seconds, then stops.
@@ -9,18 +9,6 @@
 
    Compatible with Arduino UNO R4 WiFi.
 */
-
-#include <WiFiS3.h>
-#include <ArduinoOTA.h>
-#include <TelnetStream.h>
-
-// --- WIFI CONFIGURATION ---
-const char *ssid = "REDMI_NEW";
-const char *pass = "password";
-
-// --- OTA CONFIGURATION ---
-const char *ota_hostname = "AlphaBot2-R4";
-const char *ota_password = "admin";
 
 // H-Bridge Pin Definitions
 #define PWMA 6  // Left Motor Speed pin (ENA)
@@ -41,36 +29,7 @@ const int RIGHT_SPEED_OFFSET = 0;
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  Serial.println("Starting OTA and Speed Characterization Setup...");
-
-  // 1. Connect to Wi-Fi
-  Serial.print("Connecting to: ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, pass);
-
-  while (WiFi.status() != WL_CONNECTED || WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("\nWiFi connected successfully!");
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
-
-  // 2. Start the ArduinoOTA Listener
-  ArduinoOTA.onStart([]() {
-    TelnetStream.stop();
-  });
-  ArduinoOTA.begin(WiFi.localIP(), ota_hostname, ota_password, InternalStorage);
-  Serial.println("OTA Listener started.");
-
-  // 3. Start TelnetStream
-  TelnetStream.begin();
-  Serial.println("Telnet Stream started on port 23.");
-  TelnetStream.println("--------------------------------------------------");
-  TelnetStream.println("Sketch: R4-03-Speed-Characterization");
-  TelnetStream.println("Status: Setup Completed");
-  TelnetStream.println("--------------------------------------------------");
+  Serial.println("Starting Speed Characterization Setup (Wi-Fi/OTA Disabled)...");
 
   // Configure motor control pins
   pinMode(PWMA, OUTPUT);
@@ -86,33 +45,20 @@ void setup() {
 
 void loop() {
   // Drive forward at test speed
-  TelnetStream.print("[R4-03-Speed-Characterization] Driving forward at PWM speed ");
-  TelnetStream.println(TEST_PWM);
+  Serial.print("Driving forward at PWM speed ");
+  Serial.println(TEST_PWM);
   moveForward(TEST_PWM);
 
-  // Drive for exactly 3.0 seconds (3000 ms), polling OTA and TelnetStream
-  unsigned long runStart = millis();
-  while (millis() - runStart < 3000) {
-    ArduinoOTA.poll();
-    TelnetStream.available();
-    delay(10);
-  }
+  // Drive for exactly 3.0 seconds (3000 ms)
+  delay(3000);
 
   // Stop the motors
   stopMotors();
-  Serial.println("Characterization run complete. Ready for wireless OTA uploads...");
-  TelnetStream.println("[R4-03-Speed-Characterization] Characterization run complete. Ready for wireless OTA uploads...");
+  Serial.println("Characterization run complete.");
 
-  // Lock execution forever, but keep polling OTA and TelnetStream
-  unsigned long lastLog = 0;
+  // Lock execution forever
   while (1) {
-    ArduinoOTA.poll();
-    TelnetStream.available();
-    if (millis() - lastLog > 2000) {
-      lastLog = millis();
-      TelnetStream.println("Heartbeat: [R4-03-Speed-Characterization] Robot is idle. Ready for OTA uploads.");
-    }
-    delay(10);
+    delay(1000);
   }
 }
 

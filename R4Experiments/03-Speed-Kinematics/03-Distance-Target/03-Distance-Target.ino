@@ -1,5 +1,5 @@
 /*
-   Experiment 03: Distance Target Execution (R4 WiFi)
+   Experiment 03: Distance Target Execution (R4 WiFi - WiFi/OTA Disabled)
 
    This sketch calculates the required run duration in milliseconds
    for the robot to travel a user-defined distance in centimeters,
@@ -7,18 +7,6 @@
 
    Compatible with Arduino UNO R4 WiFi.
 */
-
-#include <WiFiS3.h>
-#include <ArduinoOTA.h>
-#include <TelnetStream.h>
-
-// --- WIFI CONFIGURATION ---
-const char *ssid = "REDMI_NEW";
-const char *pass = "password";
-
-// --- OTA CONFIGURATION ---
-const char *ota_hostname = "AlphaBot2-R4";
-const char *ota_password = "admin";
 
 // H-Bridge Pin Definitions
 #define PWMA 6  // Left Motor Speed pin (ENA)
@@ -45,36 +33,7 @@ const int RIGHT_SPEED_OFFSET = 0;
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  Serial.println("Starting OTA and Distance Target Setup...");
-
-  // 1. Connect to Wi-Fi
-  Serial.print("Connecting to: ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, pass);
-
-  while (WiFi.status() != WL_CONNECTED || WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("\nWiFi connected successfully!");
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
-
-  // 2. Start the ArduinoOTA Listener
-  ArduinoOTA.onStart([]() {
-    TelnetStream.stop();
-  });
-  ArduinoOTA.begin(WiFi.localIP(), ota_hostname, ota_password, InternalStorage);
-  Serial.println("OTA Listener started.");
-
-  // 3. Start TelnetStream
-  TelnetStream.begin();
-  Serial.println("Telnet Stream started on port 23.");
-  TelnetStream.println("--------------------------------------------------");
-  TelnetStream.println("Sketch: R4-03-Distance-Target");
-  TelnetStream.println("Status: Setup Completed");
-  TelnetStream.println("--------------------------------------------------");
+  Serial.println("Starting Distance Target Setup (Wi-Fi/OTA Disabled)...");
 
   // Configure motor driver pins
   pinMode(PWMA, OUTPUT);
@@ -95,38 +54,25 @@ void loop() {
   unsigned long runDurationMillis = (unsigned long)(runDurationSeconds * 1000.0);
 
   // Drive forward at target PWM speed
-  TelnetStream.print("[R4-03-Distance-Target] Driving ");
-  TelnetStream.print(TARGET_DISTANCE_CM);
-  TelnetStream.print(" cm at speed ");
-  TelnetStream.print(TARGET_PWM);
-  TelnetStream.print(" for ");
-  TelnetStream.print(runDurationMillis);
-  TelnetStream.println(" ms...");
+  Serial.print("Driving ");
+  Serial.print(TARGET_DISTANCE_CM);
+  Serial.print(" cm at speed ");
+  Serial.print(TARGET_PWM);
+  Serial.print(" for ");
+  Serial.print(runDurationMillis);
+  Serial.println(" ms...");
   moveForward(TARGET_PWM);
 
-  // Run for the computed duration, polling OTA and TelnetStream
-  unsigned long runStart = millis();
-  while (millis() - runStart < runDurationMillis) {
-    ArduinoOTA.poll();
-    TelnetStream.available();
-    delay(10);
-  }
+  // Run for the computed duration
+  delay(runDurationMillis);
 
   // Stop the motors
   stopMotors();
-  Serial.println("Target run complete. Ready for wireless OTA uploads...");
-  TelnetStream.println("[R4-03-Distance-Target] Target run complete. Ready for wireless OTA uploads...");
+  Serial.println("Target run complete.");
 
-  // Lock execution forever, but keep polling OTA and TelnetStream
-  unsigned long lastLog = 0;
+  // Lock execution forever
   while (1) {
-    ArduinoOTA.poll();
-    TelnetStream.available();
-    if (millis() - lastLog > 2000) {
-      lastLog = millis();
-      TelnetStream.println("Heartbeat: [R4-03-Distance-Target] Robot is idle. Ready for OTA uploads.");
-    }
-    delay(10);
+    delay(1000);
   }
 }
 
