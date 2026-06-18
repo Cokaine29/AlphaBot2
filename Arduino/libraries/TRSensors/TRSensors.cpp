@@ -55,6 +55,7 @@ void TRSensors::AnalogRead(unsigned int *sensor_values)
 	for(j = 0;j < _numSensors + 1;j++)
 	{
 		digitalWrite(CS,LOW);
+		delayMicroseconds(2);
 		for(i = 0;i < 8;i++)
 		{
 			if(i<4)
@@ -74,20 +75,25 @@ void TRSensors::AnalogRead(unsigned int *sensor_values)
 			//0 to 10 clock receives the previous conversion result
 			values[j] <<= 1;
 			if(digitalRead(DataOut)) 
-			values[j] |= 0x01;
+				values[j] |= 0x01;
 			digitalWrite(Clock,HIGH);
+			delayMicroseconds(5);
 			digitalWrite(Clock,LOW);
+			delayMicroseconds(5);
 		}
 		//sent 11 to 16 clock 
 		for(i = 0;i < 4;i++)
 		{
 			values[j] <<= 1;
 			if(digitalRead(DataOut)) 
-			values[j] |= 0x01;
+				values[j] |= 0x01;
 			digitalWrite(Clock,HIGH);
+			delayMicroseconds(5);
 			digitalWrite(Clock,LOW);
+			delayMicroseconds(5);
 		}
 		digitalWrite(CS,HIGH);
+		delayMicroseconds(2);
 	}
 	for(i = 0;i < _numSensors + 1;i++)
 	{
