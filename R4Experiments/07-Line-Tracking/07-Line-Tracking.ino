@@ -5,14 +5,18 @@
    black-vs-white reflectivity thresholds and track a black line on a white floor
    using a Proportional-Derivative (PD) control loop.
 
+   This version uses the exact calibration speeds, sweep timings, and motor speed
+   control loop from Simple-Maze-Solver-BLE.ino.
+
    User prompts and telemetry are printed to the Serial Monitor at 115200 baud.
-   Calibration is initiated and started using the onboard joystick center button.
+   Calibration and tracking are initiated using the onboard joystick center button.
 
    Compatible with Arduino UNO R4 WiFi.
 */
 
 #include "TRSensors.h"
 #include <Wire.h>
+#include <Adafruit_NeoPixel.h>
 
 // H-Bridge Pin Definitions
 #define PWMA 6  // Left Motor Speed pin (ENA)
@@ -22,27 +26,33 @@
 #define BIN1 A2 // Right Motor Direction 1
 #define BIN2 A3 // Right Motor Direction 2
 
+// NeoPixel Configuration
+#define RGB_PIN 7
+#define NUM_LEDS 4
+
 // PCF8574 I2C Expander Address
 #define PCF8574_ADDR 0x20
 
 #define NUM_SENSORS 5
 TRSensors trs = TRSensors();
 unsigned int sensorValues[NUM_SENSORS];
+Adafruit_NeoPixel RGB = Adafruit_NeoPixel(NUM_LEDS, RGB_PIN, NEO_GRB + NEO_KHZ800);
 
 // Speed offsets to calibrate wheel imbalance
 const int LEFT_SPEED_OFFSET = 0;
 const int RIGHT_SPEED_OFFSET = 0;
 
-// PID Tracking Constants
-const int MAX_SPEED = 100; // Safe base speed for tracking
+// PD Tracking Constants (Referenced from Simple-Maze-Solver-BLE.ino)
+const int MAX_SPEED = 80; 
 int lastProportional = 0;
 
 // Function Prototypes
 void PCF8574Write(byte data);
 byte PCF8574Read();
 void beep(int durationMs);
+void setNeoPixelColor(uint32_t color);
 void waitForJoystickCenter();
-void stopMotors();
+void SetSpeeds(int Aspeed, int Bspeed);
 
 void setup() {
   Serial.begin(115200);
@@ -59,8 +69,12 @@ void setup() {
   pinMode(BIN1, OUTPUT);
   pinMode(BIN2, OUTPUT);
 
-  // Ensure robot is stopped
-  stopMotors();
+  // Initialize NeoPixels to Green indicating ready
+  RGB.begin();
+  setNeoPixelColor(RGB.Color(0, 255, 0));
+
+  // Ensure robot is stopped on startup
+  SetSpeeds(0, 0);
 
   // Phase 1: Calibration
   Serial.println("==================================================");
@@ -69,56 +83,46 @@ void setup() {
   Serial.println("==================================================");
   waitForJoystickCenter();
 
-  Serial.println("\nCalibration started! The robot will pivot back and forth for 5 seconds.");
+  Serial.println("\nCalibration started! The robot will pivot back and forth.");
   beep(100);
 
-  // Rotate left/right to sweep sensors across the black line
+  // Sweeps left and right at speed 55 without delay in the loop (exactly like reference)
   for (int i = 0; i < 100; i++) {
     if (i < 25 || i >= 75) {
-      // Pivot Right: Left motor forward, Right motor backward
-      digitalWrite(AIN1, LOW);
-      digitalWrite(AIN2, HIGH);
-      digitalWrite(BIN1, HIGH);
-      digitalWrite(BIN2, LOW);
+      SetSpeeds(55, -55); // Pivot Right
     } else {
-      // Pivot Left: Left motor backward, Right motor forward
-      digitalWrite(AIN1, HIGH);
-      digitalWrite(AIN2, LOW);
-      digitalWrite(BIN1, LOW);
-      digitalWrite(BIN2, HIGH);
+      SetSpeeds(-55, 55); // Pivot Left
     }
-    analogWrite(PWMA, 80);
-    analogWrite(PWMB, 80);
 
     // Read sensors and register min/max calibration thresholds
     trs.calibrate();
-    delay(50); // Total duration: 100 * 50ms = 5000ms (5 seconds)
   }
 
-  stopMotors();
+  // Calibration Complete
+  SetSpeeds(0, 0);
   beep(100);
   delay(100);
   beep(100);
   Serial.println("Calibration Complete!");
 
-  // Phase 2: Start Navigation
+  // Turn LEDs blue to indicate calibration done
+  setNeoPixelColor(RGB.Color(0, 0, 255));
+
+  // Phase 2: Start Tracking
   Serial.println("==================================================");
   Serial.println("STEP 2: Place the robot on the tracking course.");
   Serial.println("Press the joystick CENTER key to start Line Tracking.");
   Serial.println("==================================================");
   waitForJoystickCenter();
+  
+  // Turn LEDs back to green for Go
+  setNeoPixelColor(RGB.Color(0, 255, 0));
   beep(300);
-
-  // Set default forward direction for both motors
-  digitalWrite(AIN1, LOW);
-  digitalWrite(AIN2, HIGH);
-  digitalWrite(BIN1, LOW);
-  digitalWrite(BIN2, HIGH);
+  delay(200);
 }
 
 void loop() {
-  // Read the line position: returns a value from 0 to 4000
-  // (2000 is perfectly centered on the black line)
+  // Read the line position (returns a value from 0 to 4000)
   unsigned int position = trs.readLine(sensorValues);
 
   // Print telemetry to Serial Monitor for student analysis
@@ -132,16 +136,10 @@ void loop() {
   // Check for "No Line" condition
   // If the middle 3 sensors read very light values (white floor), stop the robot.
   if (sensorValues[1] > 900 && sensorValues[2] > 900 && sensorValues[3] > 900) {
-    stopMotors();
+    SetSpeeds(0, 0);
     Serial.println("Line lost! Stopping motors.");
     return;
   }
-
-  // Ensure direction pins are set back to Forward in case we stopped or pivoted
-  digitalWrite(AIN1, LOW);
-  digitalWrite(AIN2, HIGH);
-  digitalWrite(BIN1, LOW);
-  digitalWrite(BIN2, HIGH);
 
   // Proportional Term: Deviation from center (2000)
   int proportional = (int)position - 2000;
@@ -150,9 +148,8 @@ void loop() {
   int derivative = proportional - lastProportional;
   lastProportional = proportional;
 
-  // Calculate power difference using PD coefficients (Kp = 1/20, Kd = 15)
-  // Adjust Kp (proportional divisor) and Kd (derivative multiplier) to tune performance
-  int powerDifference = proportional / 20 + derivative * 15;
+  // Calculate power difference using PD coefficients from reference (Kp = 1/20, Kd = 10)
+  int powerDifference = proportional / 20 + derivative * 10;
 
   // Constrain power difference to prevent oversteering
   if (powerDifference > MAX_SPEED) {
@@ -162,15 +159,13 @@ void loop() {
     powerDifference = -MAX_SPEED;
   }
 
-  // Apply differential steering speed adjustments
+  // Apply differential steering speed adjustments via SetSpeeds
   if (powerDifference < 0) {
     // Turn Left: Slow down the Left motor, keep Right motor at base speed
-    analogWrite(PWMA, constrain(MAX_SPEED + powerDifference + LEFT_SPEED_OFFSET, 0, 255));
-    analogWrite(PWMB, constrain(MAX_SPEED + RIGHT_SPEED_OFFSET, 0, 255));
+    SetSpeeds(MAX_SPEED + powerDifference + LEFT_SPEED_OFFSET, MAX_SPEED + RIGHT_SPEED_OFFSET);
   } else {
     // Turn Right: Keep Left motor at base speed, slow down the Right motor
-    analogWrite(PWMA, constrain(MAX_SPEED + LEFT_SPEED_OFFSET, 0, 255));
-    analogWrite(PWMB, constrain(MAX_SPEED - powerDifference + RIGHT_SPEED_OFFSET, 0, 255));
+    SetSpeeds(MAX_SPEED + LEFT_SPEED_OFFSET, MAX_SPEED - powerDifference + RIGHT_SPEED_OFFSET);
   }
 }
 
@@ -206,6 +201,16 @@ void beep(int durationMs) {
 }
 
 /**
+ * Sets all 4 NeoPixel LEDs to a uniform color
+ */
+void setNeoPixelColor(uint32_t color) {
+  for (int i = 0; i < NUM_LEDS; i++) {
+    RGB.setPixelColor(i, color);
+  }
+  RGB.show();
+}
+
+/**
  * Halts execution and blocks until the joystick center key (P4 / 0xEF) is pressed
  */
 void waitForJoystickCenter() {
@@ -227,13 +232,26 @@ void waitForJoystickCenter() {
 }
 
 /**
- * Stops both motors immediately
+ * Dual motor controller setting both speed and direction dynamically
  */
-void stopMotors() {
-  analogWrite(PWMA, 0);
-  analogWrite(PWMB, 0);
-  digitalWrite(AIN1, LOW);
-  digitalWrite(AIN2, LOW);
-  digitalWrite(BIN1, LOW);
-  digitalWrite(BIN2, LOW);
+void SetSpeeds(int Aspeed, int Bspeed) {
+  if (Aspeed < 0) {
+    digitalWrite(AIN1, HIGH);
+    digitalWrite(AIN2, LOW);
+    analogWrite(PWMA, -Aspeed);
+  } else {
+    digitalWrite(AIN1, LOW);
+    digitalWrite(AIN2, HIGH);
+    analogWrite(PWMA, Aspeed);
+  }
+
+  if (Bspeed < 0) {
+    digitalWrite(BIN1, HIGH);
+    digitalWrite(BIN2, LOW);
+    analogWrite(PWMB, -Bspeed);
+  } else {
+    digitalWrite(BIN1, LOW);
+    digitalWrite(BIN2, HIGH);
+    analogWrite(PWMB, Bspeed);
+  }
 }

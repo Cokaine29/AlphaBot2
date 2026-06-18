@@ -41,9 +41,9 @@ This dampens the steering when the robot is quickly returning to the center line
 #### C. Control Equation
 The steering speed adjustment ($\text{Power Difference}$) is calculated as:
 $$\text{Power Difference} = (K_p \times e) + (K_d \times d)$$
-In our code:
+Based on tuned parameters in the reference firmware:
 * $K_p = \frac{1}{20}$ (converts position error to motor speed adjustment).
-* $K_d = 15$ (dampening gain).
+* $K_d = 10$ (dampening gain).
 
 We apply this difference by adjusting the speed of the left and right motors:
 * **Turning Left**: Slow down Left Motor, keep Right Motor at base speed.
@@ -71,7 +71,7 @@ We apply this difference by adjusting the speed of the left and right motors:
 3. Open the **Serial Monitor** at **115200 baud**.
 4. Place the robot's middle sensor over the black tape line on a white floor.
 5. Press the joystick **CENTER** key to start calibration.
-6. The robot will automatically pivot back and forth for 5 seconds to sweep the sensors across the line. Let it finish.
+6. The robot will automatically pivot back and forth for about 1 second (100 sweeps) to map the black vs. white surface.
 7. Once the double-beep sounds, place the robot at the start of your line tracking course.
 8. Press the joystick **CENTER** key again to start tracking. Observe its movement.
 
@@ -91,7 +91,7 @@ Students will observe how different $K_p$ and $K_d$ values impact tracking stabi
 | **B** | `proportional / 50` (Low) | `derivative * 0` (No D) | |
 | **C** | `proportional / 20` (Good) | `derivative * 0` (No D) | |
 | **D** | `proportional / 20` (Good) | `derivative * 30` (High) | |
-| **E** | `proportional / 20` (Good) | `derivative * 15` (Tuned)| |
+| **E** | `proportional / 20` (Good) | `derivative * 10` (Tuned)| |
 
 ---
 
@@ -99,4 +99,4 @@ Students will observe how different $K_p$ and $K_d$ values impact tracking stabi
 1. Why does setting the Derivative Gain ($K_d$) to zero make the robot oscillate back and forth (s-curve wobble) on straight lines?
 2. What happens to the sensor outputs if the robot drives off the track entirely? How does the code handle this scenario to prevent runaway?
 3. How does ambient sunlight shining onto the track affect the infrared transceiver sensors? How does calibration help mitigate this?
-4. If you wanted to increase the base tracking speed (`MAX_SPEED`) to `180`, how would you need to adjust $K_p$ and $K_d$ to maintain stability?
+4. If you wanted to increase the base tracking speed (`MAX_SPEED`) to `150`, how would you need to adjust $K_p$ and $K_d$ to maintain stability?
