@@ -39,5 +39,6 @@ Each experiment in this directory contains:
 | **04** | I2C I/O Expansion & Joystick Control | PCF8574 expander address, quasi-bidirectional I/O, joystick mapping and masking, buzzer control | [04-Joystick-I2C](file:///f:/AlphaBot2/R4Experiments/04-Joystick-I2C/README.md) |
 | **05** | Infrared (IR) Communication & NEC Decodes | Modulation at 38 kHz, pulse distance modulation (PDM), bit-bang NEC decoder, remote navigation | [05-IR-Remote](file:///f:/AlphaBot2/R4Experiments/05-IR-Remote/README.md) |
 | **06** | Ultrasonic Ranging & Collision Avoidance | Time-of-Flight sound measurements, trigger/echo pulse timing, speed of sound physical modeling, closed-loop braking | [06-Ultrasonic-Ranging](file:///f:/AlphaBot2/R4Experiments/06-Ultrasonic-Ranging/README.md) |
+| **07** | Infrared Line Tracking & PD Control | Reflectance infrared sensor array, automatic calibration sweeps, position calculations, Proportional-Derivative (PD) loop control | [07-Line-Tracking](file:///f:/AlphaBot2/R4Experiments/07-Line-Tracking/README.md) |
 
 
