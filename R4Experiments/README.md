@@ -38,5 +38,6 @@ Each experiment in this directory contains:
 | **03** | Speed, Distance, and RPM Calibration | Kinematics of differential drive, empirical speed-to-PWM calibration, open-loop distance control | [03-Speed-Kinematics](file:///f:/AlphaBot2/R4Experiments/03-Speed-Kinematics/README.md) |
 | **04** | I2C I/O Expansion & Joystick Control | PCF8574 expander address, quasi-bidirectional I/O, joystick mapping and masking, buzzer control | [04-Joystick-I2C](file:///f:/AlphaBot2/R4Experiments/04-Joystick-I2C/README.md) |
 | **05** | Infrared (IR) Communication & NEC Decodes | Modulation at 38 kHz, pulse distance modulation (PDM), bit-bang NEC decoder, remote navigation | [05-IR-Remote](file:///f:/AlphaBot2/R4Experiments/05-IR-Remote/README.md) |
+| **06** | Ultrasonic Ranging & Collision Avoidance | Time-of-Flight sound measurements, trigger/echo pulse timing, speed of sound physical modeling, closed-loop braking | [06-Ultrasonic-Ranging](file:///f:/AlphaBot2/R4Experiments/06-Ultrasonic-Ranging/README.md) |
 
 
