@@ -1,5 +1,5 @@
 /*
-   Experiment 05: Infrared (IR) Communication & NEC Protocol Decodes (R4 WiFi)
+   Experiment 05: Infrared (IR) Communication & NEC Protocol Decodes (R4 WiFi - WiFi/OTA Disabled)
 
    This sketch reads the infrared remote control signal using digital
    pin D4. It uses a custom bit-bang decoder to decode the NEC protocol,
@@ -9,18 +9,6 @@
 
    Compatible with Arduino UNO R4 WiFi.
 */
-
-#include <WiFiS3.h>
-#include <ArduinoOTA.h>
-#include <TelnetStream.h>
-
-// --- WIFI CONFIGURATION ---
-const char *ssid = "REDMI_NEW";
-const char *pass = "password";
-
-// --- OTA CONFIGURATION ---
-const char *ota_hostname = "AlphaBot2-R4";
-const char *ota_password = "admin";
 
 // H-Bridge Pin Definitions
 #define PWMA 6  // Left Motor Speed pin (ENA)
@@ -65,36 +53,7 @@ void stopMotors();
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  Serial.println("AlphaBot2 Experiment 05 - IR Control starting...");
-
-  // 1. Connect to Wi-Fi
-  Serial.print("Connecting to: ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, pass);
-
-  while (WiFi.status() != WL_CONNECTED || WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println("\nWiFi connected successfully!");
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
-
-  // 2. Start the ArduinoOTA Listener
-  ArduinoOTA.onStart([]() {
-    TelnetStream.stop();
-  });
-  ArduinoOTA.begin(WiFi.localIP(), ota_hostname, ota_password, InternalStorage);
-  Serial.println("OTA Listener started.");
-
-  // 3. Start TelnetStream
-  TelnetStream.begin();
-  Serial.println("Telnet Stream started on port 23.");
-  TelnetStream.println("--------------------------------------------------");
-  TelnetStream.println("Sketch: R4-05-IR-Remote");
-  TelnetStream.println("Status: Setup Completed");
-  TelnetStream.println("--------------------------------------------------");
+  Serial.println("AlphaBot2 Experiment 05 - IR Control starting (Wi-Fi/OTA Disabled)...");
 
   pinMode(IR_PIN, INPUT);
 
@@ -111,17 +70,6 @@ void setup() {
 }
 
 void loop() {
-  // Constantly check/poll for incoming Wi-Fi firmware packets and Telnet client status
-  ArduinoOTA.poll();
-  TelnetStream.available();
-
-  // Periodic heartbeat when idle (no active movement)
-  static unsigned long lastLog = 0;
-  if (!activeMovement && millis() - lastLog > 2000) {
-    lastLog = millis();
-    TelnetStream.println("Heartbeat: [R4-05-IR-Remote] Robot is idle. Ready for OTA uploads.");
-  }
-
   // Check if a new IR command frame has been received
   if (IR_decode(&decodedCommand)) {
     activeMovement = true;
@@ -135,7 +83,6 @@ void loop() {
         activeMovement = false;
         stopMotors();
         Serial.println("Stop (Key Released)");
-        TelnetStream.println("[R4-05-IR-Remote] Stop (Key Released)");
       }
     }
   }
@@ -221,27 +168,22 @@ void executeIRCommand() {
   switch (decodedCommand) {
     case KEY2:
       Serial.println("IR Cmd: FORWARD");
-      TelnetStream.println("[R4-05-IR-Remote] IR Cmd: FORWARD");
       forward();
       break;
     case KEY4:
       Serial.println("IR Cmd: LEFT");
-      TelnetStream.println("[R4-05-IR-Remote] IR Cmd: LEFT");
       left();
       break;
     case KEY5:
       Serial.println("IR Cmd: STOP");
-      TelnetStream.println("[R4-05-IR-Remote] IR Cmd: STOP");
       stopMotors();
       break;
     case KEY6:
       Serial.println("IR Cmd: RIGHT");
-      TelnetStream.println("[R4-05-IR-Remote] IR Cmd: RIGHT");
       right();
       break;
     case KEY8:
       Serial.println("IR Cmd: BACKWARD");
-      TelnetStream.println("[R4-05-IR-Remote] IR Cmd: BACKWARD");
       backward();
       break;
     case SpeedUp:
@@ -249,23 +191,17 @@ void executeIRCommand() {
       currentSpeed = constrain(currentSpeed, 0, 250);
       Serial.print("IR Cmd: SPEED UP -> Current Speed: ");
       Serial.println(currentSpeed);
-      TelnetStream.print("[R4-05-IR-Remote] IR Cmd: SPEED UP -> Current Speed: ");
-      TelnetStream.println(currentSpeed);
       break;
     case SpeedDown:
       currentSpeed -= 15;
       currentSpeed = constrain(currentSpeed, 0, 250);
       Serial.print("IR Cmd: SPEED DOWN -> Current Speed: ");
       Serial.println(currentSpeed);
-      TelnetStream.print("[R4-05-IR-Remote] IR Cmd: SPEED DOWN -> Current Speed: ");
-      TelnetStream.println(currentSpeed);
       break;
     case ResetSpeed:
       currentSpeed = 150;
       Serial.print("IR Cmd: RESET SPEED -> Current Speed: ");
       Serial.println(currentSpeed);
-      TelnetStream.print("[R4-05-IR-Remote] IR Cmd: RESET SPEED -> Current Speed: ");
-      TelnetStream.println(currentSpeed);
       break;
     case Repeat:
       // When key is held down, do not log or change anything, just maintain current state
@@ -273,8 +209,6 @@ void executeIRCommand() {
     default:
       Serial.print("IR Cmd: UNKNOWN CODE (Hex: 0x");
       Serial.println(decodedCommand, HEX);
-      TelnetStream.print("[R4-05-IR-Remote] IR Cmd: UNKNOWN CODE (Hex: 0x");
-      TelnetStream.println(decodedCommand, HEX);
       break;
   }
 }

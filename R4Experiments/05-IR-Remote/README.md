@@ -61,16 +61,21 @@ To guarantee the remote didn't miss a bit, the NEC protocol sends the command by
 
 If this checksum matches, the code executes the button action. If it fails, the packet is rejected as noise.
 
----
-
 ## 📝 Lab Procedure & Student Tasks
 
+> [!IMPORTANT]
+> To ensure the robot runs immediately on boot without networking delay or connection timeouts, Wi-Fi, OTA, and Telnet Stream have been disabled in this sketch. The robot will read and react to IR signals immediately upon boot/reset. Status monitoring is done entirely over the **USB Serial Monitor** (115200 baud).
+
 ### Task 1: Calibrate and Verify IR Remote Decodes
-1. Open [05-IR-Remote.ino](file:///f:/AlphaBot2/R4Experiments/05-IR-Remote/05-IR-Remote.ino) and upload it wirelessly over OTA.
-2. Open the **Serial Monitor** at **115200 baud**.
-3. Point your remote at the receiver sensor on the front of the AlphaBot2.
-4. Press the navigation keys (2, 4, 5, 6, 8) and observe the corresponding hexadecimal command codes printed on the terminal.
-5. Verify that the robot executes the movement matching the button pressed and stops when you release the key.
+1. Open [05-IR-Remote.ino](file:///f:/AlphaBot2/R4Experiments/05-IR-Remote/05-IR-Remote.ino).
+2. Upload the code to the robot using PowerShell:
+   ```powershell
+   .\manage.ps1 upload R4Experiments\05-IR-Remote
+   ```
+3. Open the **Serial Monitor** at **115200 baud**.
+4. Point your remote at the receiver sensor on the front of the AlphaBot2.
+5. Press the navigation keys (2, 4, 5, 6, 8) and observe the corresponding hexadecimal command codes printed on the terminal.
+6. Verify that the robot executes the movement matching the button pressed and stops when you release the key.
 
 ### Task 2: Analyze Pulse Timing
 Look closely at the `IR_decode()` function in the sketch. Note how the code uses `delayMicroseconds(60)` loops to measure the duration of pulses.
