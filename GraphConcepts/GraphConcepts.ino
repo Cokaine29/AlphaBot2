@@ -1,24 +1,35 @@
+#include "TRSensorsR4.h"
+#include <Adafruit_GFX.h>
 #include <Adafruit_NeoPixel.h>
-#include "TRSensors.h"
+#include <Adafruit_SSD1306.h>
 #include <Wire.h>
-#include <ArduinoBLE.h>
 
-#define PWMA   6           //Left Motor Speed pin (ENA)
-#define AIN2   A0          //Motor-L forward (IN2).
-#define AIN1   A1          //Motor-L backward (IN1)
-#define PWMB   5           //Right Motor Speed pin (ENB)
-#define BIN1   A2          //Motor-R forward (IN3)
-#define BIN2   A3          //Motor-R backward (IN4)
+#define PWMA 6  // Left Motor Speed pin (ENA)
+#define AIN2 A0 // Motor-L forward (IN2).
+#define AIN1 A1 // Motor-L backward (IN1)
+#define PWMB 5  // Right Motor Speed pin (ENB)
+#define BIN1 A2 // Motor-R forward (IN3)
+#define BIN2 A3 // Motor-R backward (IN4)
 #define PIN 7
 #define NUM_SENSORS 5
-#define Addr  0x20
+#define OLED_RESET 9
+#define OLED_SA0 8
+#define Addr 0x20
 
 #define beep_on PCF8574Write(0xDF & PCF8574Read())
 #define beep_off PCF8574Write(0x20 | PCF8574Read())
 
-TRSensors trs = TRSensors();
+Adafruit_SSD1306 display(128, 64, &Wire, OLED_RESET);
+
+TRSensorsR4 trs = TRSensorsR4();
+
+// Speed offsets to calibrate wheel imbalance (Configured to 0, 0 as requested)
+#define LEFT_SPEED_OFFSET 10
+#define RIGHT_SPEED_OFFSET 0
 unsigned int sensorValues[NUM_SENSORS];
+unsigned int last_proportional = 0;
 unsigned int position;
+long integral = 0;
 uint16_t i, j;
 byte value;
 unsigned long lasttime = 0;
@@ -27,479 +38,250 @@ Adafruit_NeoPixel RGB = Adafruit_NeoPixel(4, PIN, NEO_GRB + NEO_KHZ800);
 void PCF8574Write(byte data);
 byte PCF8574Read();
 uint32_t Wheel(byte WheelPos);
-void SetSpeeds(int Aspeed,int Bspeed);
-bool follow_segment();
-void turn(unsigned char dir);
-unsigned char select_turn(unsigned char found_left, unsigned char found_straight, unsigned char found_right);
-void simplify_path();
-
-// BLE Service & Characteristics Configuration (Nordic UART Service)
-BLEService uartService("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");
-BLECharacteristic rxCharacteristic("6E400002-B5A3-F393-E0A9-E50E24DCCA9E", BLEWrite | BLEWriteWithoutResponse, 48);
-BLECharacteristic txCharacteristic("6E400003-B5A3-F393-E0A9-E50E24DCCA9E", BLENotify, 20);
-
-// BLE Integration variables & functions
-char cmdBuffer[48];
-byte cmdIndex = 0;
-volatile bool startCalibrate = false;
-volatile bool startMaze = false;
-volatile bool startSolve = false;
-
-void parseAndExecuteCommand(char* command) {
-  if (strstr(command, "\"Calibrate\":\"Start\"") != NULL) {
-    startCalibrate = true;
-  }
-  else if (strstr(command, "\"Maze\":\"Learn\"") != NULL) {
-    startMaze = true;
-  }
-  else if (strstr(command, "\"Maze\":\"Solve\"") != NULL) {
-    startSolve = true;
-  }
-  else if (strstr(command, "\"BZ\":\"on\"") != NULL) {
-    beep_on;
-  }
-  else if (strstr(command, "\"BZ\":\"off\"") != NULL) {
-    beep_off;
-  }
-}
-
-// Emulates BLE incoming buffer exactly like Serial
-void checkBLE() {
-  BLE.poll();
-  if (rxCharacteristic.written()) {
-    int len = rxCharacteristic.valueLength();
-    const byte* val = rxCharacteristic.value();
-    for (int i = 0; i < len; i++) {
-      char c = (char)val[i];
-      if (c == '{') {
-        cmdIndex = 0;
-        cmdBuffer[cmdIndex++] = c;
-      } else if (cmdIndex > 0) {
-        if (cmdIndex < 47) {
-          cmdBuffer[cmdIndex++] = c;
-          if (c == '}') {
-            cmdBuffer[cmdIndex] = '\0';
-            parseAndExecuteCommand(cmdBuffer);
-            cmdIndex = 0;
-          }
-        } else {
-          cmdIndex = 0;
-        }
-      }
-    }
-  }
-}
-
-// Helper to write serial data out to BLE NUS characteristic
-void writeBLE(const char* data) {
-  if (txCharacteristic.subscribed()) {
-    txCharacteristic.writeValue((const uint8_t*)data, strlen(data));
-  }
-}
 
 void setup() {
-  delay(1000);
-  Serial.begin(115200); // USB Serial Monitor
-  Wire.begin();
-  
-  pinMode(PWMA,OUTPUT);                     
-  pinMode(AIN2,OUTPUT);      
-  pinMode(AIN1,OUTPUT);
-  pinMode(PWMB,OUTPUT);       
-  pinMode(BIN1,OUTPUT);     
-  pinMode(BIN2,OUTPUT);  
-  SetSpeeds(0,0);
-  
+  Serial.begin(115200);
+
+  // Set OLED address select pin LOW to secure 0x3C address
+  pinMode(OLED_SA0, OUTPUT);
+  digitalWrite(OLED_SA0, LOW);
+
+  // by default, we'll generate the high voltage from the 3.3v line internally!
+  // (neat!)
+  display.begin(SSD1306_SWITCHCAPVCC,
+                0x3C); // initialize with the I2C addr 0x3C (for the 128x64)
+  // init done
+
+  // Show image buffer on the display hardware.
+  // Since the buffer is intialized with an Adafruit splashscreen
+  // internally, this will display the splashscreen.
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(10, 0);
+  display.println("WaveShare");
+  display.setCursor(10, 25);
+  display.println("AlphaBot2");
+  display.setTextSize(1);
+  display.setCursor(10, 55);
+  display.println("Press to calibrate");
+  display.display();
+
+  while (value != 0xEF) // wait button pressed
+  {
+    PCF8574Write(0x1F | PCF8574Read());
+    value = PCF8574Read() | 0xE0;
+  }
+
+  pinMode(PWMA, OUTPUT);
+  pinMode(AIN2, OUTPUT);
+  pinMode(AIN1, OUTPUT);
+  pinMode(PWMB, OUTPUT);
+  pinMode(BIN1, OUTPUT); // Fixed: previously duplicated AIN1
+  pinMode(BIN2, OUTPUT); // Fixed: previously duplicated AIN2
+  analogWrite(PWMA, 0);
+  analogWrite(PWMB, 0);
+  digitalWrite(AIN2, HIGH);
+  digitalWrite(AIN1, LOW);
+  digitalWrite(BIN1, HIGH);
+  digitalWrite(BIN2, LOW);
   RGB.begin();
-  RGB.setPixelColor(0,0x00FF00 );
-  RGB.setPixelColor(1,0x00FF00 );
-  RGB.setPixelColor(2,0x00FF00 );
-  RGB.setPixelColor(3,0x00FF00);
-  RGB.show(); // Green LEDs indicating ready
-
-  // Initialize built-in BLE
-  if (!BLE.begin()) {
-    Serial.println("Starting BLE failed!");
-    while (1) {
-      delay(1000);
-    }
-  }
-
-  BLE.setLocalName("AlphaBot2-R4");
-  BLE.setAdvertisedService(uartService);
-  uartService.addCharacteristic(rxCharacteristic);
-  uartService.addCharacteristic(txCharacteristic);
-  BLE.addService(uartService);
-  BLE.advertise();
-
-  Serial.println("BLE Nordic UART Service advertised. Waiting for connection...");
-  
-  value = 0;
-  startCalibrate = false;
-  while(value != 0xEF && !startCalibrate)  //wait button pressed or BLE command
-  {
-    checkBLE();
-    PCF8574Write(0x1F | PCF8574Read());
-    value = PCF8574Read() | 0xE0;
-    delay(10);
-  }
-  
-  // Start Calibration
-  RGB.setPixelColor(0,0x00FF00 );
-  RGB.setPixelColor(1,0x00FF00 );
-  RGB.setPixelColor(2,0x00FF00 );
-  RGB.setPixelColor(3,0x00FF00);
-  RGB.show(); 
-  delay(500);
-
-  for (int i = 0; i < 100; i++)
-  {
-    if(i<25 || i >= 75)
-    {
-      SetSpeeds(55,-55);
-    }
-    else
-    {
-        SetSpeeds(-55,55);
-    }
-    trs.calibrate();       // reads all sensors 100 times
-  }
-  SetSpeeds(0,0); 
-  
-  // Calibration Done (Turn LEDs blue)
-  RGB.setPixelColor(0,0x0000FF );
-  RGB.setPixelColor(1,0x0000FF );
-  RGB.setPixelColor(2,0x0000FF );
-  RGB.setPixelColor(3,0x0000FF);
-  RGB.show();
-  
-  value = 0;
-  startMaze = false;
-  while(value != 0xEF && !startMaze)  //wait button pressed or BLE command
-  {
-    checkBLE();
-    PCF8574Write(0x1F | PCF8574Read());
-    value = PCF8574Read() | 0xE0;
-    delay(10);
-  }
-
-  // Go! (Turn LEDs green)
-  RGB.setPixelColor(0,0x00FF00 );
-  RGB.setPixelColor(1,0x00FF00 );
-  RGB.setPixelColor(2,0x00FF00 );
-  RGB.setPixelColor(3,0x00FF00);
+  RGB.setPixelColor(0, 0x00FF00);
+  RGB.setPixelColor(1, 0x00FF00);
+  RGB.setPixelColor(2, 0x00FF00);
+  RGB.setPixelColor(3, 0x00FF00);
   RGB.show();
   delay(500);
-}
-
-bool follow_segment()
-{
-  int last_proportional = 0;
-  long integral=0;
-
-  while(1)
+  analogWrite(PWMA, 80);
+  analogWrite(PWMB, 80);
+  for (int i = 0; i < 100; i++) // make the calibration take about 10 seconds
   {
-    checkBLE(); // Ensure we poll BLE and handle commands during tracking
-    unsigned int position = trs.readLine(sensorValues);
-    int proportional = ((int)position) - 2000;
-    int derivative = proportional - last_proportional;
-    integral += proportional;
-    last_proportional = proportional;
-
-    int power_difference = proportional/20 + integral/10000 + derivative*10;
-
-    const int maximum = 80; // the maximum speed (matched to MazeSolver.ino)
-    if (power_difference > maximum)
-      power_difference = maximum;
-    if (power_difference < -maximum)
-      power_difference = - maximum;
-
-    if (power_difference < 0)
-    {
-      analogWrite(PWMA,maximum + power_difference);
-      analogWrite(PWMB,maximum);
+    if (i < 25 || i >= 75) {
+      digitalWrite(AIN1, HIGH);
+      digitalWrite(AIN2, LOW);
+      digitalWrite(BIN1, LOW);
+      digitalWrite(BIN2, HIGH);
+    } else {
+      digitalWrite(AIN1, LOW);
+      digitalWrite(AIN2, HIGH);
+      digitalWrite(BIN1, HIGH);
+      digitalWrite(BIN2, LOW);
     }
-    else
-    {
-      analogWrite(PWMA,maximum);
-      analogWrite(PWMB,maximum - power_difference);
-    }
-
-   if(millis() - lasttime >100)
-   {
-    if (sensorValues[1] < 150 && sensorValues[2] < 150 && sensorValues[3] < 150)
-    {
-      return false; // dead end
-    }
-    else if (sensorValues[0] > 600 || sensorValues[4] > 600)
-    {
-      return true; // intersection
-    }
-   }
+    trs.calibrate(); // reads all sensors 10 times
   }
-}
+  analogWrite(PWMA, 0);
+  analogWrite(PWMB, 0);
+  digitalWrite(AIN2, LOW);
+  digitalWrite(AIN1, LOW);
+  digitalWrite(BIN1, LOW);
+  digitalWrite(BIN2, LOW);
+  RGB.setPixelColor(0, 0x0000FF);
+  RGB.setPixelColor(1, 0x0000FF);
+  RGB.setPixelColor(2, 0x0000FF);
+  RGB.setPixelColor(3, 0x0000FF);
+  RGB.show(); // Initialize all pixels to 'off'
 
-void turn(unsigned char dir)
-{
-  switch(dir)
+  value = 0;
+  while (value != 0xEF) // wait button pressed
   {
-    case 'L':
-      SetSpeeds(-100, 100);
-      delay(150); // blind turn to get off current line
-      while(1)
-      {
-        trs.readLine(sensorValues);
-        if(sensorValues[2] > 500 || sensorValues[1] > 500 || sensorValues[3] > 500)
-          break;
-      }
-      break;
-    case 'R':
-      SetSpeeds(100, -100);
-      delay(150); // blind turn to get off current line
-      while(1)
-      {
-        trs.readLine(sensorValues);
-        if(sensorValues[2] > 500 || sensorValues[1] > 500 || sensorValues[3] > 500)
-          break;
-      }
-      break;
-    case 'B':
-      SetSpeeds(100, -100);
-      delay(250); // blind turn to sweep past the end of the line
-      while(1)
-      {
-        trs.readLine(sensorValues);
-        if(sensorValues[2] > 500 || sensorValues[1] > 500 || sensorValues[3] > 500)
-          break;
-      }
-      break;
-    case 'S':
-      break;
-  }
-  SetSpeeds(0, 0);
-  Serial.write(dir);
-  Serial.println();
-  
-  // Send the turn direction over BLE NUS
-  char dirStr[3] = {(char)dir, '\n', '\0'};
-  writeBLE(dirStr);
-
-  lasttime = millis();   
-}
-
-unsigned char select_turn(unsigned char found_left, unsigned char found_straight, unsigned char found_right)
-{
-  if (found_left)
-    return 'L';
-  else if (found_straight)
-    return 'S';
-  else if (found_right)
-    return 'R';
-  else
-    return 'B';
-}
-
-char path[100] = "";
-unsigned char path_length = 0;
-
-void simplify_path()
-{
-  if (path_length < 3 || path[path_length-2] != 'B')
-    return;
-
-  int total_angle = 0;
-  int i;
-  for (i = 1; i <= 3; i++)
-  {
-    switch (path[path_length - i])
-    {
-    case 'R':
-      total_angle += 90;
-      break;
-    case 'L':
-      total_angle += 270;
-      break;
-    case 'B':
-      total_angle += 180;
-      break;
+    PCF8574Write(0x1F | PCF8574Read());
+    value = PCF8574Read() | 0xE0;
+    // Use EMA filter ONLY for the OLED display so the '**' doesn't jump wildly 
+    // due to tiny sensor noise crossing a rounding boundary (e.g. 1999 vs 2000).
+    int raw_pos = trs.readLine(sensorValues);
+    static float display_ema = 2000.0;
+    display_ema = (0.8 * display_ema) + (0.2 * raw_pos);
+    position = ((unsigned int)display_ema) / 200;
+    display.clearDisplay();
+    display.setCursor(0, 25);
+    display.println("Calibration Done !!!");
+    display.setCursor(0, 55);
+    for (int i = 0; i < 21; i++) {
+      display.print('_');
     }
+    display.setCursor(position * 6, 55);
+    display.print("**");
+    display.display();
   }
 
-  total_angle = total_angle % 360;
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(10, 0);
+  display.println("AlphaBot2");
+  display.setTextSize(3);
+  display.setCursor(40, 30);
+  display.println("Go!");
+  display.display();
 
-  switch (total_angle)
-  {
-  case 0:
-    path[path_length - 3] = 'S';
-    break;
-  case 90:
-    path[path_length - 3] = 'R';
-    break;
-  case 180:
-    path[path_length - 3] = 'B';
-    break;
-  case 270:
-    path[path_length - 3] = 'L';
-    break;
-  }
-
-  path_length -= 2;
+  delay(500);
+  digitalWrite(AIN1, LOW);
+  digitalWrite(AIN2, HIGH);
+  digitalWrite(BIN1, LOW);
+  digitalWrite(BIN2, HIGH);
 }
 
 void loop() {
-  while (1)
-  {
-    if (!follow_segment())
-    {
-      // Hit a dead end! Stop and back up slightly
-      SetSpeeds(0, 0);
-      delay(50);
-      SetSpeeds(-70, -70);
-      delay(180);
-      SetSpeeds(0, 0);
-      delay(50);
+  // Let the UNO R4 run at maximum speed! Artificial loop delays introduce 
+  // control phase lag which causes high-frequency mechanical vibration.
 
-      // Turn around (U-turn)
-      turn('B');
-
-      // Store 'B' in the path
-      path[path_length] = 'B';
-      path_length++;
-      simplify_path();
-      
-      continue;
-    }
-
-    // Drive straight a bit.
-    SetSpeeds(30, 30);
-    delay(40);
-
-    unsigned char found_left = 0;
-    unsigned char found_straight = 0;
-    unsigned char found_right = 0;
-
-    trs.readLine(sensorValues);
-
-    if (sensorValues[0] > 600)
-      found_left = 1;
-    if (sensorValues[4] > 600)
-      found_right = 1;
-
-    SetSpeeds(30, 30);
-    delay(100);
-
-    trs.readLine(sensorValues);
-    if (sensorValues[1] > 600 || sensorValues[2] > 600 || sensorValues[3] > 600)
-      found_straight = 1;
-
-    if (sensorValues[1] > 600 && sensorValues[2] > 600 && sensorValues[3] > 600)
-    {
-      SetSpeeds(0, 0);
-      break;
-    }
-
-    unsigned char dir = select_turn(found_left, found_straight, found_right);
-    turn(dir);
-
-    path[path_length] = dir;
-    path_length++;
-    simplify_path();
-  }
-
-  // Solved the maze! (Flash LEDs Blue/Green to indicate success)
-  while (1)
-  {
-    SetSpeeds(0, 0);
-    Serial.println("End !!!");
-    writeBLE("End !!!\n");
-    
-    // Cycle LED colors
-    RGB.setPixelColor(0,0x0000FF);
-    RGB.setPixelColor(1,0x00FF00);
-    RGB.setPixelColor(2,0x0000FF);
-    RGB.setPixelColor(3,0x00FF00);
-    RGB.show();
-    delay(250);
-    RGB.setPixelColor(0,0x00FF00);
-    RGB.setPixelColor(1,0x0000FF);
-    RGB.setPixelColor(2,0x00FF00);
-    RGB.setPixelColor(3,0x0000FF);
-    RGB.show();
-    delay(250);
-
-    value = 0;
-    startSolve = false;
-    while(value != 0xEF && !startSolve)  //wait button pressed or BLE command
-    {
-      checkBLE();
-      PCF8574Write(0x1F | PCF8574Read());
-      value = PCF8574Read() | 0xE0;
-      delay(10);
-    }
-    delay(1000);
-
-    // Green lights for solve re-run
-    RGB.setPixelColor(0,0x00FF00 );
-    RGB.setPixelColor(1,0x00FF00 );
-    RGB.setPixelColor(2,0x00FF00 );
-    RGB.setPixelColor(3,0x00FF00);
-    RGB.show();
-
-    int i;
-    for (i = 0; i < path_length; i++)
-    {
-      follow_segment();
-      SetSpeeds(30, 30);
-      delay(40);
-      SetSpeeds(30, 30);
-      delay(150);
-      turn(path[i]);
-    }
-    follow_segment();
-  }
-}
-
-void SetSpeeds(int Aspeed,int Bspeed)
-{
-  if(Aspeed < 0)
-  {
-    digitalWrite(AIN1,HIGH);
-    digitalWrite(AIN2,LOW);
-    analogWrite(PWMA,-Aspeed);      
-  }
-  else
-  {
-    digitalWrite(AIN1,LOW); 
-    digitalWrite(AIN2,HIGH);
-    analogWrite(PWMA,Aspeed);  
-  }
+  // put your main code here, to run repeatedly:
+  // Get the position of the line.  Note that we *must* provide
+  // the "sensors" argument to read_line() here, even though we
+  // are not interested in the individual sensor readings.
+  position = trs.readLine(sensorValues);
   
-  if(Bspeed < 0)
-  {
-    digitalWrite(BIN1,HIGH);
-    digitalWrite(BIN2,LOW);
-    analogWrite(PWMB,-Bspeed);      
+  for (unsigned char i = 0; i < NUM_SENSORS; i++) {
+    // Serial.print(sensorValues[i]);
+    // Serial.print('\t');
   }
-  else
-  {
-    digitalWrite(BIN1,LOW); 
-    digitalWrite(BIN2,HIGH);
-    analogWrite(PWMB,Bspeed);  
+  // Serial.println();
+  // Serial.println(position); // comment this line out if you are using raw values
+
+  // The "proportional" term should be 0 when we are on the line.
+  int proportional = (int)position - 2000;
+
+  // Compute the derivative (change) and integral (sum) of the position.
+  int derivative = proportional - last_proportional;
+  integral += proportional;
+
+  // Anti-Integral-Windup: Reset the integral when we cross the center of the
+  // line. This completely eliminates the "weaving" memory effect after a sharp
+  // turn!
+  if ((proportional >= 0 && last_proportional < 0) ||
+      (proportional <= 0 && last_proportional > 0) || (proportional == 0)) {
+    integral = 0;
+  }
+
+  // Remember the last position.
+  last_proportional = proportional;
+
+  // Compute the difference between the two motor power settings,
+  // m1 - m2.  If this is a positive number the robot will turn
+  // to the right.  If it is a negative number, the robot will
+  // turn to the left, and the magnitude of the number determines
+  // the sharpness of the turn.
+  // Using a mild derivative multiplier to damp oscillations without causing jerks
+  int power_difference = proportional / 20 + integral / 10000 + derivative * 5;
+
+  // Compute the actual motor settings.  We never set either motor
+  // to a negative value.
+  // A lower maximum (e.g. 60) causes the inside motor to completely stall 
+  // during a turn, which causes jerking and vibrations! Restored to 100.
+  const int maximum = 100;
+
+  if (power_difference > maximum)
+    power_difference = maximum;
+  if (power_difference < -maximum)
+    power_difference = -maximum;
+  // Serial.println(power_difference);
+
+  if (power_difference < 0) {
+    analogWrite(PWMA, constrain(maximum + power_difference + LEFT_SPEED_OFFSET,
+                                0, 255));
+    analogWrite(PWMB, constrain(maximum + RIGHT_SPEED_OFFSET, 0, 255));
+  } else {
+    analogWrite(PWMA, constrain(maximum + LEFT_SPEED_OFFSET, 0, 255));
+    analogWrite(PWMB, constrain(maximum - power_difference + RIGHT_SPEED_OFFSET,
+                                0, 255));
+  }
+
+  if (sensorValues[1] > 900 && sensorValues[2] > 900 && sensorValues[3] > 900) {
+    // There is no line .Must Stop.
+    analogWrite(PWMA, 0);
+    analogWrite(PWMB, 0);
+  }
+
+  //  PCF8574Write(0xC0 | PCF8574Read());   //set Pin High
+  //  value = PCF8574Read() | 0x3F;         //read Pin
+  //  while(value != 0xFF)
+  //  {
+  //    PCF8574Write(0xC0 | PCF8574Read());   //set Pin High
+  //    value = PCF8574Read() | 0x3F;         //read Pin
+  //    analogWrite(PWMA,0);
+  //    analogWrite(PWMB,0);
+  //    beep_on;
+  //  }
+  //  beep_off;
+
+  if (millis() - lasttime > 200) {
+    lasttime = millis();
+    for (i = 0; i < RGB.numPixels(); i++) {
+      RGB.setPixelColor(i, Wheel(((i * 256 / RGB.numPixels()) + j) & 255));
+    }
+    RGB.show();
+    if (j++ > 256 * 4)
+      j = 0;
+  }
+
+  // (Removed delay(4) because we are now strictly enforcing 4.5ms loop timing
+  // at the top of loop!)
+}
+
+// Input a value 0 to 255 to get a color value.
+// The colours are a transition r - g - b - back to r.
+uint32_t Wheel(byte WheelPos) {
+  if (WheelPos < 85) {
+    return RGB.Color(WheelPos * 50, 255 - WheelPos * 50, 0);
+  } else if (WheelPos < 170) {
+    WheelPos -= 85;
+    return RGB.Color(255 - WheelPos * 50, 0, WheelPos * 50);
+  } else {
+    WheelPos -= 170;
+    return RGB.Color(0, WheelPos * 50, 255 - WheelPos * 50);
   }
 }
 
-void PCF8574Write(byte data)
-{
+void PCF8574Write(byte data) {
   Wire.beginTransmission(Addr);
   Wire.write(data);
-  Wire.endTransmission(); 
+  Wire.endTransmission();
 }
 
-byte PCF8574Read()
-{
+byte PCF8574Read() {
   int data = -1;
   Wire.requestFrom(Addr, 1);
-  if(Wire.available()) {
+  if (Wire.available()) {
     data = Wire.read();
   }
   return data;

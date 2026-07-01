@@ -17,7 +17,7 @@
 // --- CALIBRATION ---
 // TODO: Adjust this delay (in milliseconds) until the turn is exactly 90
 // degrees!
-const unsigned long TURN_DURATION_MS = 200; // Estimated baseline
+const unsigned long TURN_DURATION_MS = 200; 
 const int TURN_SPEED = 60;                  // Fixed turning speed
 
 void setup() {

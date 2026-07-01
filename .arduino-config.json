@@ -1,5 +1,5 @@
 {
-    "fqbn":  "arduino:renesas_uno:unor4wifi",
-    "port":  "COM11",
+    "fqbn":  "arduino:avr:uno",
+    "port":  "COM7",
     "baud":  115200
 }

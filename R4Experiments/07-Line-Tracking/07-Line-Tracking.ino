@@ -1,22 +1,23 @@
 /*
    Experiment 07: Line Tracking (R4 WiFi - WiFi/OTA Disabled, OLED Removed)
 
-   This sketch reads the 5-channel TRSensors reflectance array to calibrate 
-   black-vs-white reflectivity thresholds and track a black line on a white floor
-   using a Proportional-Derivative (PD) control loop.
+   This sketch reads the 5-channel TRSensors reflectance array to calibrate
+   black-vs-white reflectivity thresholds and track a black line on a white
+   floor using a Proportional-Derivative (PD) control loop.
 
-   This version uses the exact calibration speeds, sweep timings, and motor speed
-   control loop from Simple-Maze-Solver-BLE.ino.
+   This version uses the exact calibration speeds, sweep timings, and motor
+   speed control loop from Simple-Maze-Solver-BLE.ino.
 
    User prompts and telemetry are printed to the Serial Monitor at 115200 baud.
-   Calibration and tracking are initiated using the onboard joystick center button.
+   Calibration and tracking are initiated using the onboard joystick center
+   button.
 
    Compatible with Arduino UNO R4 WiFi.
 */
 
 #include "TRSensors.h"
-#include <Wire.h>
 #include <Adafruit_NeoPixel.h>
+#include <Wire.h>
 
 // H-Bridge Pin Definitions
 #define PWMA 6  // Left Motor Speed pin (ENA)
@@ -36,14 +37,15 @@
 #define NUM_SENSORS 5
 TRSensors trs = TRSensors();
 unsigned int sensorValues[NUM_SENSORS];
-Adafruit_NeoPixel RGB = Adafruit_NeoPixel(NUM_LEDS, RGB_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel RGB =
+    Adafruit_NeoPixel(NUM_LEDS, RGB_PIN, NEO_GRB + NEO_KHZ800);
 
 // Speed offsets to calibrate wheel imbalance
 const int LEFT_SPEED_OFFSET = 0;
 const int RIGHT_SPEED_OFFSET = 0;
 
 // PD Tracking Constants (Referenced from Simple-Maze-Solver-BLE.ino)
-const int MAX_SPEED = 80; 
+const int MAX_SPEED = 80;
 int lastProportional = 0;
 
 // Function Prototypes
@@ -57,7 +59,8 @@ void SetSpeeds(int Aspeed, int Bspeed);
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  Serial.println("AlphaBot2 Experiment 07 - Line Tracking starting (Wi-Fi/OTA Disabled)...");
+  Serial.println("AlphaBot2 Experiment 07 - Line Tracking starting (Wi-Fi/OTA "
+                 "Disabled)...");
 
   Wire.begin();
 
@@ -78,7 +81,8 @@ void setup() {
 
   // Phase 1: Calibration
   Serial.println("==================================================");
-  Serial.println("STEP 1: Place the robot's middle sensor over the black line.");
+  Serial.println(
+      "STEP 1: Place the robot's middle sensor over the black line.");
   Serial.println("Press the joystick CENTER key to start calibration.");
   Serial.println("==================================================");
   waitForJoystickCenter();
@@ -86,7 +90,8 @@ void setup() {
   Serial.println("\nCalibration started! The robot will pivot back and forth.");
   beep(100);
 
-  // Sweeps left and right at speed 55 without delay in the loop (exactly like reference)
+  // Sweeps left and right at speed 55 without delay in the loop (exactly like
+  // reference)
   for (int i = 0; i < 100; i++) {
     if (i < 25 || i >= 75) {
       SetSpeeds(55, -55); // Pivot Right
@@ -114,7 +119,7 @@ void setup() {
   Serial.println("Press the joystick CENTER key to start Line Tracking.");
   Serial.println("==================================================");
   waitForJoystickCenter();
-  
+
   // Turn LEDs back to green for Go
   setNeoPixelColor(RGB.Color(0, 255, 0));
   beep(300);
@@ -134,7 +139,8 @@ void loop() {
   Serial.println(position);
 
   // Check for "No Line" condition
-  // If the middle 3 sensors read very light values (white floor), stop the robot.
+  // If the middle 3 sensors read very light values (white floor), stop the
+  // robot.
   if (sensorValues[1] > 900 && sensorValues[2] > 900 && sensorValues[3] > 900) {
     SetSpeeds(0, 0);
     Serial.println("Line lost! Stopping motors.");
@@ -148,7 +154,8 @@ void loop() {
   int derivative = proportional - lastProportional;
   lastProportional = proportional;
 
-  // Calculate power difference using PD coefficients from reference (Kp = 1/20, Kd = 10)
+  // Calculate power difference using PD coefficients from reference (Kp = 1/20,
+  // Kd = 10)
   int powerDifference = proportional / 20 + derivative * 10;
 
   // Constrain power difference to prevent oversteering
@@ -162,10 +169,12 @@ void loop() {
   // Apply differential steering speed adjustments via SetSpeeds
   if (powerDifference < 0) {
     // Turn Left: Slow down the Left motor, keep Right motor at base speed
-    SetSpeeds(MAX_SPEED + powerDifference + LEFT_SPEED_OFFSET, MAX_SPEED + RIGHT_SPEED_OFFSET);
+    SetSpeeds(MAX_SPEED + powerDifference + LEFT_SPEED_OFFSET,
+              MAX_SPEED + RIGHT_SPEED_OFFSET);
   } else {
     // Turn Right: Keep Left motor at base speed, slow down the Right motor
-    SetSpeeds(MAX_SPEED + LEFT_SPEED_OFFSET, MAX_SPEED - powerDifference + RIGHT_SPEED_OFFSET);
+    SetSpeeds(MAX_SPEED + LEFT_SPEED_OFFSET,
+              MAX_SPEED - powerDifference + RIGHT_SPEED_OFFSET);
   }
 }
 
@@ -211,7 +220,8 @@ void setNeoPixelColor(uint32_t color) {
 }
 
 /**
- * Halts execution and blocks until the joystick center key (P4 / 0xEF) is pressed
+ * Halts execution and blocks until the joystick center key (P4 / 0xEF) is
+ * pressed
  */
 void waitForJoystickCenter() {
   byte keyState = 0xFF;
@@ -222,7 +232,7 @@ void waitForJoystickCenter() {
     keyState = PCF8574Read() | 0xE0;
     delay(50);
   }
-  
+
   // Wait for button release (debounce)
   while (keyState == 0xEF) {
     PCF8574Write(0x1F | PCF8574Read());
