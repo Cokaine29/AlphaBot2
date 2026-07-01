@@ -23,8 +23,8 @@ Adafruit_SSD1306 display(128, 64, &Wire, OLED_RESET);
 
 TRSensorsR4 trs = TRSensorsR4();
 
-// Speed offsets to calibrate wheel imbalance (Configured to 0, 0 as requested)
-#define LEFT_SPEED_OFFSET 10
+// Speed offsets to calibrate wheel imbalance (Configured to 1, 0 as requested)
+#define LEFT_SPEED_OFFSET 1
 #define RIGHT_SPEED_OFFSET 0
 unsigned int sensorValues[NUM_SENSORS];
 unsigned int last_proportional = 0;
@@ -206,9 +206,10 @@ void loop() {
 
   // Compute the actual motor settings.  We never set either motor
   // to a negative value.
-  // A lower maximum (e.g. 60) causes the inside motor to completely stall 
-  // during a turn, which causes jerking and vibrations! Restored to 100.
-  const int maximum = 100;
+  // A lower maximum causes the inside motor to completely stall 
+  // during a turn, which causes jerking and vibrations! 
+  // You had it at 40, which stalls during corners. Bumping to 70 for stability.
+  const int maximum = 70;
 
   if (power_difference > maximum)
     power_difference = maximum;
