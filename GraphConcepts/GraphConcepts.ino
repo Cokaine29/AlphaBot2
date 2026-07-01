@@ -126,8 +126,9 @@ void setup() {
   {
     PCF8574Write(0x1F | PCF8574Read());
     value = PCF8574Read() | 0xE0;
-    // Use EMA filter ONLY for the OLED display so the '**' doesn't jump wildly 
-    // due to tiny sensor noise crossing a rounding boundary (e.g. 1999 vs 2000).
+    // Use EMA filter ONLY for the OLED display so the '**' doesn't jump wildly
+    // due to tiny sensor noise crossing a rounding boundary (e.g. 1999 vs
+    // 2000).
     int raw_pos = trs.readLine(sensorValues);
     static float display_ema = 2000.0;
     display_ema = (0.8 * display_ema) + (0.2 * raw_pos);
@@ -162,7 +163,7 @@ void setup() {
 }
 
 void loop() {
-  // Let the UNO R4 run at maximum speed! Artificial loop delays introduce 
+  // Let the UNO R4 run at maximum speed! Artificial loop delays introduce
   // control phase lag which causes high-frequency mechanical vibration.
 
   // put your main code here, to run repeatedly:
@@ -170,13 +171,14 @@ void loop() {
   // the "sensors" argument to read_line() here, even though we
   // are not interested in the individual sensor readings.
   position = trs.readLine(sensorValues);
-  
+
   for (unsigned char i = 0; i < NUM_SENSORS; i++) {
     // Serial.print(sensorValues[i]);
     // Serial.print('\t');
   }
   // Serial.println();
-  // Serial.println(position); // comment this line out if you are using raw values
+  // Serial.println(position); // comment this line out if you are using raw
+  // values
 
   // The "proportional" term should be 0 when we are on the line.
   int proportional = (int)position - 2000;
@@ -201,21 +203,20 @@ void loop() {
   // to the right.  If it is a negative number, the robot will
   // turn to the left, and the magnitude of the number determines
   // the sharpness of the turn.
-  // Using a mild derivative multiplier to damp oscillations without causing jerks
-  int power_difference = proportional / 20 + integral / 10000 + derivative * 5;
+  // Increased proportional (divided by 10) for maximum turning power, and 
+  // massive derivative (* 25) so it slams on the brakes for the inside wheel 
+  // the millisecond it detects a curve!
+  int power_difference = proportional / 10 + integral / 10000 + derivative * 25;
 
   // Compute the actual motor settings.  We never set either motor
-  // to a negative value.
-  // A lower maximum causes the inside motor to completely stall 
-  // during a turn, which causes jerking and vibrations! 
-  // You had it at 40, which stalls during corners. Bumping to 70 for stability.
-  const int maximum = 70;
+  // A compromise speed: 60 is a nice middle ground that avoids the stalling
+  // deadzone but isn't too fast for a small space.
+  const int maximum = 80;
 
   if (power_difference > maximum)
     power_difference = maximum;
   if (power_difference < -maximum)
     power_difference = -maximum;
-  // Serial.println(power_difference);
 
   if (power_difference < 0) {
     analogWrite(PWMA, constrain(maximum + power_difference + LEFT_SPEED_OFFSET,
